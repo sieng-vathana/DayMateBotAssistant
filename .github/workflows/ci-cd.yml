@@ -61,9 +61,9 @@ jobs:
           SERVER_HOST: ${{ secrets.SERVER_HOST }}
           SERVER_USER: ${{ secrets.SERVER_USER }}
         run: |
-          scp -o IdentitiesOnly=yes target/daymate-bot-assistant.jar \
+          scp target/daymate-bot-assistant.jar \
             "${SERVER_USER}@${SERVER_HOST}:/tmp/daymate-bot-assistant.jar"
-          ssh -o IdentitiesOnly=yes "${SERVER_USER}@${SERVER_HOST}" 'bash -s' <<'EOF'
+          ssh "${SERVER_USER}@${SERVER_HOST}" 'bash -s' <<'EOF'
             set -euo pipefail
             sudo mv /tmp/daymate-bot-assistant.jar /opt/daymate/daymate-bot-assistant.jar
             sudo chown daymate:daymate /opt/daymate/daymate-bot-assistant.jar
