@@ -1,0 +1,15 @@
+target/
+data/
+.idea/
+*.iml
+*.log
+.env
+.classpath
+.project
+.settings/
+.vscode/
+*.db
+*.trace.db
+*.pem
+deploy/daymate.env
+!deploy/daymate.env.example

@@ -1,0 +1,21 @@
+[Unit]
+Description=DayMate Telegram daily planner bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=daymate
+Group=daymate
+EnvironmentFile=/etc/daymate/daymate.env
+WorkingDirectory=/opt/daymate
+ExecStart=/usr/bin/java -Xms128m -Xmx384m -jar /opt/daymate/daymate-bot-assistant.jar
+SuccessExitStatus=143
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=daymate
+
+[Install]
+WantedBy=multi-user.target
