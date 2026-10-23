@@ -33,6 +33,13 @@ public class ConversationStateEntity {
 
     private LocalDate dueDate;
     private LocalTime dueTime;
+    private Boolean acledaEmployee;
+    private Integer payTimes;
+    private Integer payDay1;
+    private Integer payDay2;
+    private Boolean resumeOt;
+    @Column(length = 32)
+    private String pendingRange;
     private Instant updatedAt;
 
     protected ConversationStateEntity() {
@@ -69,6 +76,30 @@ public class ConversationStateEntity {
         this.dueTime = dueTime;
     }
 
+    public void setAcledaEmployee(Boolean acledaEmployee) {
+        this.acledaEmployee = acledaEmployee;
+    }
+
+    public void setPayTimes(Integer payTimes) {
+        this.payTimes = payTimes;
+    }
+
+    public void setPayDay1(Integer payDay1) {
+        this.payDay1 = payDay1;
+    }
+
+    public void setPayDay2(Integer payDay2) {
+        this.payDay2 = payDay2;
+    }
+
+    public void setResumeOt(Boolean resumeOt) {
+        this.resumeOt = resumeOt;
+    }
+
+    public void setPendingRange(String pendingRange) {
+        this.pendingRange = pendingRange;
+    }
+
     public void setUpdatedAt(Instant updatedAt) {
         this.updatedAt = updatedAt;
     }
@@ -103,6 +134,30 @@ public class ConversationStateEntity {
 
     public LocalTime getDueTime() {
         return dueTime;
+    }
+
+    public Boolean getAcledaEmployee() {
+        return acledaEmployee;
+    }
+
+    public Integer getPayTimes() {
+        return payTimes;
+    }
+
+    public Integer getPayDay1() {
+        return payDay1;
+    }
+
+    public Integer getPayDay2() {
+        return payDay2;
+    }
+
+    public boolean isResumeOt() {
+        return Boolean.TRUE.equals(resumeOt);
+    }
+
+    public String getPendingRange() {
+        return pendingRange;
     }
 
     public Instant getUpdatedAt() {

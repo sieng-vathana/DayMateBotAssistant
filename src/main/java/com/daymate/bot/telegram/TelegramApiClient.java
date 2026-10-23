@@ -45,9 +45,20 @@ public class TelegramApiClient {
     }
 
     public void sendMessage(Long chatId, String text, List<List<Map<String, String>>> keyboard) {
+        send(chatId, text, keyboard, false);
+    }
+
+    public void sendHtml(Long chatId, String text, List<List<Map<String, String>>> keyboard) {
+        send(chatId, text, keyboard, true);
+    }
+
+    private void send(Long chatId, String text, List<List<Map<String, String>>> keyboard, boolean html) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("chat_id", chatId);
         payload.put("text", clip(text));
+        if (html) {
+            payload.put("parse_mode", "HTML");
+        }
         if (keyboard != null) {
             payload.put("reply_markup", Map.of("inline_keyboard", keyboard));
         }

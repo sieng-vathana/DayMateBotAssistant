@@ -22,16 +22,18 @@ public class CommandRouter {
     private final TaskSaveService tasks;
     private final ConversationService conversations;
     private final ConversationHandler conversationHandler;
+    private final OtHandler otHandler;
     private final PlannerFormatter formatter;
     private final Set<Long> allowedUserIds;
 
     public CommandRouter(TelegramApiClient telegram, TaskSaveService tasks, ConversationService conversations,
-                         ConversationHandler conversationHandler, PlannerFormatter formatter,
+                         ConversationHandler conversationHandler, OtHandler otHandler, PlannerFormatter formatter,
                          BotProperties properties) {
         this.telegram = telegram;
         this.tasks = tasks;
         this.conversations = conversations;
         this.conversationHandler = conversationHandler;
+        this.otHandler = otHandler;
         this.formatter = formatter;
         this.allowedUserIds = Arrays.stream(properties.getAllowedUserIds().split(","))
                 .map(String::trim)
@@ -79,7 +81,13 @@ public class CommandRouter {
             return;
         }
         conversations.get(chatId).ifPresentOrElse(
-                state -> conversationHandler.handleText(state, chatId, text),
+                state -> {
+                    if (state.getStep().isOtSetup()) {
+                        otHandler.handleText(state, chatId, text);
+                    } else {
+                        conversationHandler.handleText(state, chatId, text);
+                    }
+                },
                 () -> telegram.sendMessage(chatId, formatter.unknownCommand()));
     }
 
@@ -101,6 +109,12 @@ public class CommandRouter {
         }
         String data = callback.data();
         try {
+            if (data.startsWith("ot:")) {
+                if (!otHandler.handleCallback(callback.id(), chatId, userId, data)) {
+                    telegram.answerCallback(callback.id(), "This button is no longer available.", true);
+                }
+                return;
+            }
             if (data.startsWith("flow:")) {
                 var state = conversations.get(chatId);
                 if (state.isEmpty()) {
@@ -198,6 +212,9 @@ public class CommandRouter {
             case "/add" -> conversationHandler.startAdd(chatId, userId);
             case "/done" -> handleDone(chatId, userId, argument);
             case "/recurring" -> telegram.sendMessage(chatId, formatter.recurring(tasks.recurring(userId)));
+            case "/ot", "/ot-record" -> otHandler.startRecord(chatId, userId, argument);
+            case "/otlist", "/ot-list" -> otHandler.list(chatId, userId);
+            case "/salary" -> otHandler.startSalary(chatId, userId);
             case "/cancel" -> telegram.sendMessage(chatId, formatter.cancelled());
             default -> telegram.sendMessage(chatId, formatter.unknownCommand());
         }

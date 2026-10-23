@@ -26,7 +26,7 @@ public class DailyDigestScheduler {
         this.telegram = telegram;
     }
 
-    @Scheduled(cron = "${telegram.bot.digest-cron:0 0 8 * * *}", zone = "${telegram.bot.timezone:Asia/Bangkok}")
+    @Scheduled(cron = "${telegram.bot.digest-cron:0 0 8 * * *}", zone = "${telegram.bot.timezone:Asia/Phnom_Penh}")
     public void sendDigest() {
         if (!properties.isDigestEnabled() || !telegram.isConfigured()) {
             return;

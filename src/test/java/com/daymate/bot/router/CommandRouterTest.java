@@ -41,6 +41,8 @@ class CommandRouterTest {
     private ConversationService conversations;
     @Mock
     private ConversationHandler conversationHandler;
+    @Mock
+    private OtHandler otHandler;
 
     private CommandRouter router;
 
@@ -48,7 +50,7 @@ class CommandRouterTest {
     void setUp() {
         BotProperties properties = new BotProperties();
         properties.setAllowedUserIds("");
-        router = new CommandRouter(telegram, tasks, conversations, conversationHandler,
+        router = new CommandRouter(telegram, tasks, conversations, conversationHandler, otHandler,
                 new PlannerFormatter(), properties);
     }
 

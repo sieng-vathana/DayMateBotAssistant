@@ -12,6 +12,9 @@ DayMate is a Telegram daily planner. Telegram is the user interface. Spring Boot
 | `/done` | Mark a task complete (buttons or `/done T-001`) |
 | `/list` | Pending tasks plus completed today |
 | `/recurring` | Daily and weekly repeating tasks |
+| `/ot`, `/ot-record` | Record overtime for today (Phnom Penh time) |
+| `/otlist`, `/ot-list` | Overtime records for this month |
+| `/salary` | Base salary and payday |
 | `/help` | Help |
 | `/cancel` | Cancel an add-task flow |
 | `/id` | Print your numeric Telegram user ID |
@@ -60,6 +63,9 @@ add - Add a new task
 done - Mark a task as complete
 list - List all pending tasks
 recurring - Show repeating tasks
+ot - Record overtime
+otlist - Overtime records this month
+salary - Base salary and payday
 help - Show help
 cancel - Cancel the current action
 id - Show your Telegram user ID
@@ -99,6 +105,20 @@ H2 files are stored under `data/daymate-bot` in the working directory.
 5. Repeat: None, Daily, Weekly
 
 Completing a daily or weekly task creates the next occurrence.
+
+## Overtime
+
+Dates and "today" use `Asia/Phnom_Penh`.
+
+`/ot` asks for a same-day range such as `16:30-17:30`. Weekdays are Evening at 150%. Saturday and Sunday are Weekend at 200%. A range of 6 hours or more includes a 1 hour break. The hourly rate is monthly base salary / 208 (26 days × 8 hours), then multiplied by 1.5 or 2 and rounded to cents.
+
+Before the first OT entry, DayMate asks for salary:
+
+1. ACLEDA employee? Yes sets pay to 2 times a month, on day 12 and day 26.
+2. Otherwise it asks how many times salary is paid each month (1 or 2), then the day of the month it arrives.
+3. Then the monthly base salary in USD.
+
+`/otlist` shows the current month, for example `Oct 2026 so far: 1.00h · $3.46`.
 
 ## REST API
 

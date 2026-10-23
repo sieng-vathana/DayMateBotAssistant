@@ -8,7 +8,7 @@ public class BotProperties {
     private String allowedUserIds = "";
     private int pollTimeoutSeconds = 20;
     private long pollDelayMs = 1000;
-    private String timezone = "Asia/Bangkok";
+    private String timezone = "Asia/Phnom_Penh";
     private boolean digestEnabled = false;
     private String digestCron = "0 0 8 * * *";
 

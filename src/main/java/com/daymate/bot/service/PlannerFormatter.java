@@ -31,6 +31,9 @@ public class PlannerFormatter {
                 /add — Add a new task
                 /done — Mark a task as complete
                 /list — List all pending tasks
+                /ot — Record overtime
+                /otlist — Overtime this month
+                /salary — Base salary and paydays
                 /help — Show this help message
 
                 Let's make today productive! 💪""";
@@ -45,8 +48,16 @@ public class PlannerFormatter {
                 /done — Mark a task complete
                 /list — Pending + completed today
                 /recurring — Daily and weekly repeating tasks
-                /cancel — Cancel the current add-task flow
+                /ot or /ot-record — Record overtime (set salary first)
+                /otlist or /ot-list — Overtime records for this month
+                /salary — Base salary, pay count, and payday
+                /cancel — Cancel the current question
                 /help — This message
+
+                Overtime uses Phnom Penh time.
+                Weekdays are Evening at 150%. Saturday and Sunday are Weekend at 200%.
+                A shift of 6 hours or more includes a 1 hour break.
+                ACLEDA employees are paid on day 12 and day 26.
 
                 Tasks have:
                 • ID (T-001)
