@@ -38,7 +38,7 @@ public class OtRecordService {
 
     @Transactional
     public SalaryProfileEntity saveSalary(Long userId, boolean acleda, int payTimes, int payDay1, Integer payDay2,
-                                          BigDecimal monthlySalary) {
+                                          int workDaysPerWeek, BigDecimal monthlySalary) {
         if (payTimes != 1 && payTimes != 2) {
             throw new IllegalArgumentException("Salary can be paid 1 or 2 times a month.");
         }
@@ -54,8 +54,10 @@ public class OtRecordService {
         if (monthlySalary == null || monthlySalary.signum() <= 0) {
             throw new IllegalArgumentException("Base salary must be greater than 0.");
         }
+        int week = acleda ? 5 : workDaysPerWeek;
         SalaryProfileEntity profile = new SalaryProfileEntity(
-                userId, acleda, payTimes, payDay1, payDay2, monthlySalary.setScale(2, java.math.RoundingMode.HALF_UP),
+                userId, acleda, payTimes, payDay1, payDay2, week,
+                monthlySalary.setScale(2, java.math.RoundingMode.HALF_UP),
                 Instant.now(clock));
         return salaries.save(profile);
     }
@@ -65,7 +67,8 @@ public class OtRecordService {
         SalaryProfileEntity profile = salaries.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("Set your base salary before recording OT."));
         LocalDate today = LocalDate.now(clock);
-        OtCalculator.Quote quote = OtCalculator.quote(profile.getMonthlySalary(), today, range.start(), range.end());
+        OtCalculator.Quote quote = OtCalculator.quote(
+                profile.getMonthlySalary(), today, range.start(), range.end(), profile.resolvedWorkDaysPerWeek());
         int number = nextNumber(userId);
         OtRecordEntity saved = records.save(new OtRecordEntity(
                 userId, chatId, number, today, range.start(), range.end(), quote.shift(),

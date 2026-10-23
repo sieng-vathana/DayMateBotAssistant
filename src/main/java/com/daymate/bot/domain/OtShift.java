@@ -28,9 +28,12 @@ public enum OtShift {
         return multiplier.multiply(BigDecimal.valueOf(100)).intValue();
     }
 
-    public static OtShift forDate(LocalDate date) {
+    public static OtShift forDate(LocalDate date, int workDaysPerWeek) {
         DayOfWeek day = date.getDayOfWeek();
-        if (day == DayOfWeek.SATURDAY || day == DayOfWeek.SUNDAY) {
+        if (day == DayOfWeek.SUNDAY) {
+            return WEEKEND;
+        }
+        if (day == DayOfWeek.SATURDAY && workDaysPerWeek <= 5) {
             return WEEKEND;
         }
         return EVENING;

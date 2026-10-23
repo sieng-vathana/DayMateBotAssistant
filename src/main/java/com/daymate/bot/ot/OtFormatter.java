@@ -32,7 +32,17 @@ public class OtFormatter {
                 Before recording OT, set your base salary.
 
                 Are you an ACLEDA employee?
-                If yes, salary is paid 2 times a month, on day 12 and day 26.""";
+                ACLEDA works 5 days a week (Monday–Friday).
+                Saturday and Sunday are weekend OT at 200%.
+                Pay is 2 times a month, on day 12 and day 26.""";
+    }
+
+    public String workDaysPrompt() {
+        return """
+                How many days do you work each week?
+
+                5 days — Monday to Friday. Saturday and Sunday are weekend OT (200%). Rate uses 22 × 8 hours.
+                6 days — Monday to Saturday. Only Sunday is weekend OT (200%). Rate uses 26 × 8 hours.""";
     }
 
     public String payTimesPrompt() {
@@ -51,17 +61,22 @@ public class OtFormatter {
 
     public String salaryAmountPrompt(boolean acleda, int payTimes, int payDay1, Integer payDay2) {
         String schedule = acleda
-                ? "ACLEDA pay days: 12 and 26 (2 times a month)."
+                ? "ACLEDA · 5-day week · pay days 12 and 26 (2 times a month)."
                 : scheduleText(payTimes, payDay1, payDay2);
         return schedule + "\n\nWhat is your base salary for the month? (USD)\nExample: 480";
     }
 
     public String salarySaved(SalaryProfileEntity profile) {
-        BigDecimal hourly = profile.getMonthlySalary().divide(OtCalculator.HOURS_PER_MONTH, 10, RoundingMode.HALF_UP);
+        int week = profile.resolvedWorkDaysPerWeek();
+        BigDecimal monthHours = OtCalculator.hoursPerMonth(week);
+        BigDecimal hourly = profile.getMonthlySalary().divide(monthHours, 10, RoundingMode.HALF_UP);
         BigDecimal evening = hourly.multiply(new BigDecimal("1.5")).setScale(2, RoundingMode.HALF_UP);
         BigDecimal weekend = hourly.multiply(new BigDecimal("2")).setScale(2, RoundingMode.HALF_UP);
+        String weekLine = week + "-day week · " + OtCalculator.daysPerMonth(week) + " days × 8h = "
+                + monthHours.toPlainString() + "h/month";
         return "✅ Salary saved\n"
                 + (profile.isAcledaEmployee() ? "ACLEDA employee\n" : "")
+                + weekLine + "\n"
                 + scheduleText(profile.getPayTimes(), profile.getPayDay1(), profile.getPayDay2()) + "\n"
                 + "Base salary: " + money(profile.getMonthlySalary()) + "\n"
                 + "Hourly " + money(hourly.setScale(2, RoundingMode.HALF_UP))

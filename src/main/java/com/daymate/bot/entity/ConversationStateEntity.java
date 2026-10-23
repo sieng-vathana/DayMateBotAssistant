@@ -37,6 +37,7 @@ public class ConversationStateEntity {
     private Integer payTimes;
     private Integer payDay1;
     private Integer payDay2;
+    private Integer workDaysPerWeek;
     private Boolean resumeOt;
     @Column(length = 32)
     private String pendingRange;
@@ -90,6 +91,10 @@ public class ConversationStateEntity {
 
     public void setPayDay2(Integer payDay2) {
         this.payDay2 = payDay2;
+    }
+
+    public void setWorkDaysPerWeek(Integer workDaysPerWeek) {
+        this.workDaysPerWeek = workDaysPerWeek;
     }
 
     public void setResumeOt(Boolean resumeOt) {
@@ -150,6 +155,10 @@ public class ConversationStateEntity {
 
     public Integer getPayDay2() {
         return payDay2;
+    }
+
+    public Integer getWorkDaysPerWeek() {
+        return workDaysPerWeek;
     }
 
     public boolean isResumeOt() {

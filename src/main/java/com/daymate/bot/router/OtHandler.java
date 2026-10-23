@@ -73,6 +73,7 @@ public class OtHandler {
     public void handleText(ConversationStateEntity state, Long chatId, String text) {
         switch (state.getStep()) {
             case ACLEDA -> acceptAcleda(state, chatId, text);
+            case WORK_DAYS -> acceptWorkDays(state, chatId, text);
             case PAY_TIMES -> acceptTimes(state, chatId, text);
             case PAY_DAY, PAY_DAY_2 -> acceptDay(state, chatId, text);
             case BASE_SALARY -> acceptSalary(state, chatId, text);
@@ -101,6 +102,7 @@ public class OtHandler {
         telegram.answerCallback(callbackId, "Saved", false);
         if (data.equals("ot:acleda:yes")) {
             state.setAcledaEmployee(true);
+            state.setWorkDaysPerWeek(5);
             state.setPayTimes(2);
             state.setPayDay1(12);
             state.setStep(ConversationStep.BASE_SALARY);
@@ -110,9 +112,13 @@ public class OtHandler {
         }
         if (data.equals("ot:acleda:no")) {
             state.setAcledaEmployee(false);
-            state.setStep(ConversationStep.PAY_TIMES);
+            state.setStep(ConversationStep.WORK_DAYS);
             conversations.save(state);
-            telegram.sendMessage(chatId, formatter.payTimesPrompt(), timesKeyboard());
+            telegram.sendMessage(chatId, formatter.workDaysPrompt(), workDaysKeyboard());
+            return true;
+        }
+        if (data.equals("ot:days:5") || data.equals("ot:days:6")) {
+            acceptWorkDays(state, chatId, data.endsWith("6") ? "6" : "5");
             return true;
         }
         if (data.equals("ot:times:1") || data.equals("ot:times:2")) {
@@ -134,6 +140,7 @@ public class OtHandler {
         String value = text.trim().toLowerCase();
         if (value.equals("yes") || value.equals("y") || value.equals("acleda")) {
             state.setAcledaEmployee(true);
+            state.setWorkDaysPerWeek(5);
             state.setPayTimes(2);
             state.setPayDay1(12);
             state.setStep(ConversationStep.BASE_SALARY);
@@ -143,12 +150,29 @@ public class OtHandler {
         }
         if (value.equals("no") || value.equals("n")) {
             state.setAcledaEmployee(false);
-            state.setStep(ConversationStep.PAY_TIMES);
+            state.setStep(ConversationStep.WORK_DAYS);
             conversations.save(state);
-            telegram.sendMessage(chatId, formatter.payTimesPrompt(), timesKeyboard());
+            telegram.sendMessage(chatId, formatter.workDaysPrompt(), workDaysKeyboard());
             return;
         }
         telegram.sendMessage(chatId, "Choose Yes or No.", acledaKeyboard());
+    }
+
+    private void acceptWorkDays(ConversationStateEntity state, Long chatId, String text) {
+        String value = text.trim().toLowerCase();
+        int days;
+        if (value.startsWith("5")) {
+            days = 5;
+        } else if (value.startsWith("6")) {
+            days = 6;
+        } else {
+            telegram.sendMessage(chatId, formatter.workDaysPrompt(), workDaysKeyboard());
+            return;
+        }
+        state.setWorkDaysPerWeek(days);
+        state.setStep(ConversationStep.PAY_TIMES);
+        conversations.save(state);
+        telegram.sendMessage(chatId, formatter.payTimesPrompt(), timesKeyboard());
     }
 
     private void acceptTimes(ConversationStateEntity state, Long chatId, String text) {
@@ -205,6 +229,7 @@ public class OtHandler {
             return;
         }
         boolean acleda = Boolean.TRUE.equals(state.getAcledaEmployee());
+        int workDays = acleda ? 5 : (state.getWorkDaysPerWeek() == null ? 5 : state.getWorkDaysPerWeek());
         int times = acleda ? 2 : state.getPayTimes();
         int day1 = acleda ? 12 : state.getPayDay1();
         Integer day2 = null;
@@ -215,7 +240,7 @@ public class OtHandler {
                 return;
             }
         }
-        SalaryProfileEntity profile = ot.saveSalary(state.getUserId(), acleda, times, day1, day2, amount);
+        SalaryProfileEntity profile = ot.saveSalary(state.getUserId(), acleda, times, day1, day2, workDays, amount);
         String pending = state.getPendingRange();
         boolean resume = state.isResumeOt();
         conversations.clear(chatId);
@@ -274,6 +299,10 @@ public class OtHandler {
 
     private static List<List<Map<String, String>>> acledaKeyboard() {
         return List.of(List.of(button("Yes, ACLEDA", "ot:acleda:yes"), button("No", "ot:acleda:no")));
+    }
+
+    private static List<List<Map<String, String>>> workDaysKeyboard() {
+        return List.of(List.of(button("5 days", "ot:days:5"), button("6 days", "ot:days:6")));
     }
 
     private static List<List<Map<String, String>>> timesKeyboard() {

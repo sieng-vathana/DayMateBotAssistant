@@ -9,14 +9,22 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 
 public final class OtCalculator {
-    public static final BigDecimal HOURS_PER_MONTH = new BigDecimal("208");
     public static final BigDecimal BREAK_AFTER_HOURS = new BigDecimal("6.00");
     public static final BigDecimal BREAK_HOURS = new BigDecimal("1.00");
 
     private OtCalculator() {
     }
 
-    public static Quote quote(BigDecimal monthlySalary, LocalDate date, LocalTime start, LocalTime end) {
+    public static int daysPerMonth(int workDaysPerWeek) {
+        return workDaysPerWeek >= 6 ? 26 : 22;
+    }
+
+    public static BigDecimal hoursPerMonth(int workDaysPerWeek) {
+        return BigDecimal.valueOf(daysPerMonth(workDaysPerWeek) * 8L);
+    }
+
+    public static Quote quote(BigDecimal monthlySalary, LocalDate date, LocalTime start, LocalTime end,
+                             int workDaysPerWeek) {
         if (monthlySalary == null || monthlySalary.signum() <= 0) {
             throw new IllegalArgumentException("Base salary must be greater than 0.");
         }
@@ -30,8 +38,9 @@ public final class OtCalculator {
         if (paid.signum() <= 0) {
             throw new IllegalArgumentException("That range does not leave any paid hours.");
         }
-        OtShift shift = OtShift.forDate(date);
-        BigDecimal hourly = monthlySalary.divide(HOURS_PER_MONTH, 10, RoundingMode.HALF_UP);
+        int week = workDaysPerWeek >= 6 ? 6 : 5;
+        OtShift shift = OtShift.forDate(date, week);
+        BigDecimal hourly = monthlySalary.divide(hoursPerMonth(week), 10, RoundingMode.HALF_UP);
         BigDecimal rate = hourly.multiply(shift.multiplier()).setScale(2, RoundingMode.HALF_UP);
         BigDecimal amount = paid.multiply(rate).setScale(2, RoundingMode.HALF_UP);
         return new Quote(shift, gross, breakHours, paid, rate, amount);

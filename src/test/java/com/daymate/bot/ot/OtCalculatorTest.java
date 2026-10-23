@@ -14,32 +14,33 @@ class OtCalculatorTest {
     private static final BigDecimal SALARY = new BigDecimal("480.00");
 
     @Test
-    void weekdayEveningMatchesOneHourAtOneHundredFiftyPercent() {
-        OtCalculator.Quote quote = OtCalculator.quote(
-                SALARY, LocalDate.of(2026, 10, 23), LocalTime.of(16, 30), LocalTime.of(17, 30));
+    void fiveDayWeekUsesTwentyTwoDaysAndTreatsSaturdayAsWeekend() {
+        OtCalculator.Quote friday = OtCalculator.quote(
+                SALARY, LocalDate.of(2026, 10, 23), LocalTime.of(16, 30), LocalTime.of(17, 30), 5);
+        OtCalculator.Quote saturday = OtCalculator.quote(
+                SALARY, LocalDate.of(2026, 10, 24), LocalTime.of(9, 0), LocalTime.of(17, 30), 5);
 
-        assertThat(quote.shift()).isEqualTo(OtShift.EVENING);
-        assertThat(quote.paidHours()).isEqualByComparingTo("1.00");
-        assertThat(quote.breakHours()).isEqualByComparingTo("0.00");
-        assertThat(quote.hourlyRate()).isEqualByComparingTo("3.46");
-        assertThat(quote.amount()).isEqualByComparingTo("3.46");
+        assertThat(OtCalculator.daysPerMonth(5)).isEqualTo(22);
+        assertThat(OtCalculator.hoursPerMonth(5)).isEqualByComparingTo("176");
+        assertThat(friday.shift()).isEqualTo(OtShift.EVENING);
+        assertThat(friday.hourlyRate()).isEqualByComparingTo("4.09");
+        assertThat(friday.amount()).isEqualByComparingTo("4.09");
+        assertThat(saturday.shift()).isEqualTo(OtShift.WEEKEND);
+        assertThat(saturday.paidHours()).isEqualByComparingTo("7.50");
+        assertThat(saturday.hourlyRate()).isEqualByComparingTo("5.45");
+        assertThat(saturday.amount()).isEqualByComparingTo("40.88");
     }
 
     @Test
-    void weekendLongShiftDeductsOneHourBreak() {
-        OtCalculator.Quote full = OtCalculator.quote(
-                SALARY, LocalDate.of(2026, 10, 3), LocalTime.of(9, 0), LocalTime.of(17, 30));
-        OtCalculator.Quote afternoon = OtCalculator.quote(
-                SALARY, LocalDate.of(2026, 10, 10), LocalTime.of(13, 0), LocalTime.of(19, 0));
+    void sixDayWeekUsesTwentySixDaysAndTreatsSaturdayAsEvening() {
+        OtCalculator.Quote saturday = OtCalculator.quote(
+                SALARY, LocalDate.of(2026, 10, 24), LocalTime.of(16, 30), LocalTime.of(18, 30), 6);
 
-        assertThat(full.shift()).isEqualTo(OtShift.WEEKEND);
-        assertThat(full.paidHours()).isEqualByComparingTo("7.50");
-        assertThat(full.breakHours()).isEqualByComparingTo("1.00");
-        assertThat(full.hourlyRate()).isEqualByComparingTo("4.62");
-        assertThat(full.amount()).isEqualByComparingTo("34.65");
-
-        assertThat(afternoon.paidHours()).isEqualByComparingTo("5.00");
-        assertThat(afternoon.amount()).isEqualByComparingTo("23.10");
+        assertThat(OtCalculator.hoursPerMonth(6)).isEqualByComparingTo("208");
+        assertThat(saturday.shift()).isEqualTo(OtShift.EVENING);
+        assertThat(saturday.paidHours()).isEqualByComparingTo("2.00");
+        assertThat(saturday.hourlyRate()).isEqualByComparingTo("3.46");
+        assertThat(saturday.amount()).isEqualByComparingTo("6.92");
     }
 
     @Test

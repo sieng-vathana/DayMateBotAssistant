@@ -25,6 +25,8 @@ public class SalaryProfileEntity {
 
     private Integer payDay2;
 
+    private Integer workDaysPerWeek;
+
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal monthlySalary;
 
@@ -34,12 +36,13 @@ public class SalaryProfileEntity {
     }
 
     public SalaryProfileEntity(Long telegramUserId, boolean acledaEmployee, int payTimes, int payDay1,
-                               Integer payDay2, BigDecimal monthlySalary, Instant updatedAt) {
+                               Integer payDay2, int workDaysPerWeek, BigDecimal monthlySalary, Instant updatedAt) {
         this.telegramUserId = telegramUserId;
         this.acledaEmployee = acledaEmployee;
         this.payTimes = payTimes;
         this.payDay1 = payDay1;
         this.payDay2 = payDay2;
+        this.workDaysPerWeek = workDaysPerWeek >= 6 ? 6 : 5;
         this.monthlySalary = monthlySalary;
         this.updatedAt = updatedAt;
     }
@@ -62,6 +65,16 @@ public class SalaryProfileEntity {
 
     public Integer getPayDay2() {
         return payDay2;
+    }
+
+    public int resolvedWorkDaysPerWeek() {
+        if (workDaysPerWeek != null && workDaysPerWeek >= 6) {
+            return 6;
+        }
+        if (workDaysPerWeek != null && workDaysPerWeek == 5) {
+            return 5;
+        }
+        return acledaEmployee ? 5 : 6;
     }
 
     public BigDecimal getMonthlySalary() {
