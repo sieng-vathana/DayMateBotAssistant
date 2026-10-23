@@ -59,32 +59,22 @@ class CommandRouterTest {
         router.process(message(1L, "/start"));
         ArgumentCaptor<String> text = ArgumentCaptor.forClass(String.class);
         verify(telegram).sendMessage(eq(1L), text.capture());
-        assertThat(text.getValue()).contains("Welcome to DayMate — Your Daily Planner Bot");
+        assertThat(text.getValue()).contains("Welcome to DayMate");
+        assertThat(text.getValue()).contains("/upcoming_salary");
         verify(conversations).clear(1L);
     }
 
     @Test
-    void todaySendsAgendaWithButtons() {
-        LocalDate date = LocalDate.of(2026, 10, 10);
-        TaskEntity task = TaskEntity.create(
-                "T-001", 1L, 1L, "Review Q4 budget",
-                TaskCategory.WORK, TaskPriority.HIGH,
-                date, LocalTime.of(10, 0), Recurrence.NONE,
-                Instant.parse("2026-10-10T02:00:00Z"));
-        when(tasks.today(1L)).thenReturn(new TaskSaveService.Agenda(date, List.of(task), List.of()));
-
+    void removedTaskCommandsAreUnknown() {
         router.process(message(1L, "/today"));
-
-        ArgumentCaptor<String> text = ArgumentCaptor.forClass(String.class);
-        verify(telegram).sendMessage(eq(1L), text.capture(), any());
-        assertThat(text.getValue()).contains("Review Q4 budget");
-        assertThat(text.getValue()).contains("Progress: 0/1 done ✅");
+        verify(telegram).sendMessage(eq(1L), eq("I don't know that command. Send /help to see what I can do."));
+        verify(conversationHandler, never()).startAdd(any(), any());
     }
 
     @Test
-    void addStartsConversation() {
-        router.process(message(1L, "/add"));
-        verify(conversationHandler).startAdd(1L, 1L);
+    void upcomingSalaryIsRouted() {
+        router.process(message(1L, "/upcoming_salary"));
+        verify(otHandler).upcoming(1L, 1L);
     }
 
     @Test

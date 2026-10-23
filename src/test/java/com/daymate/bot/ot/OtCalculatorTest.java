@@ -44,6 +44,17 @@ class OtCalculatorTest {
     }
 
     @Test
+    void holidayPaysTheBaseHour() {
+        OtCalculator.Quote quote = OtCalculator.quote(
+                SALARY, LocalTime.of(8, 30), LocalTime.of(17, 30), OtShift.HOLIDAY, 5);
+
+        assertThat(quote.shift()).isEqualTo(OtShift.HOLIDAY);
+        assertThat(quote.paidHours()).isEqualByComparingTo("8.00");
+        assertThat(quote.hourlyRate()).isEqualByComparingTo("2.31");
+        assertThat(quote.amount()).isEqualByComparingTo("18.48");
+    }
+
+    @Test
     void parsesDashSeparatedRange() {
         assertThat(OtTimeParser.parse("16:30-17:30"))
                 .contains(new OtTimeRange(LocalTime.of(16, 30), LocalTime.of(17, 30)));

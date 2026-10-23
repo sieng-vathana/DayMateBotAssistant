@@ -61,7 +61,7 @@ public class OtFormatter {
 
     public String salaryAmountPrompt(boolean acleda, int payTimes, int payDay1, Integer payDay2) {
         String schedule = acleda
-                ? "ACLEDA · 5-day week · pay days 12 and 26 (2 times a month)."
+                ? "5-day week. Paid 2 times a month, on day 12 and day 26."
                 : scheduleText(payTimes, payDay1, payDay2);
         return schedule + "\n\nWhat is your base salary for the month? (USD)\nExample: 400";
     }
@@ -70,18 +70,44 @@ public class OtFormatter {
         int week = profile.resolvedWorkDaysPerWeek();
         BigDecimal monthHours = OtCalculator.hoursPerMonth(week);
         BigDecimal hourly = profile.getMonthlySalary().divide(monthHours, 10, RoundingMode.HALF_UP);
+        BigDecimal shownHourly = hourly.setScale(2, RoundingMode.HALF_UP);
+        BigDecimal holiday = shownHourly;
         BigDecimal evening = hourly.multiply(new BigDecimal("1.5")).setScale(2, RoundingMode.HALF_UP);
         BigDecimal weekend = hourly.multiply(new BigDecimal("2")).setScale(2, RoundingMode.HALF_UP);
         String weekLine = week + "-day week · " + week + " × 52 ÷ 12 × 8h = "
                 + monthHours.setScale(2, RoundingMode.HALF_UP).toPlainString() + "h/month";
         return "✅ Salary saved\n"
-                + (profile.isAcledaEmployee() ? "ACLEDA employee\n" : "")
                 + weekLine + "\n"
-                + scheduleText(profile.getPayTimes(), profile.getPayDay1(), profile.getPayDay2()) + "\n"
-                + "Base salary: " + money(profile.getMonthlySalary()) + "\n"
-                + "Hourly " + money(hourly.setScale(2, RoundingMode.HALF_UP))
-                + " · Evening 150% " + money(evening) + "/h"
-                + " · Weekend 200% " + money(weekend) + "/h";
+                + scheduleText(profile.getPayTimes(), profile.getPayDay1(), profile.getPayDay2()) + "\n\n"
+                + "Hourly pay | Base salary\n"
+                + money(shownHourly) + " | " + money(profile.getMonthlySalary()) + "\n\n"
+                + "Holiday 100% " + money(holiday) + "/h\n"
+                + "Evening 150% " + money(evening) + "/h\n"
+                + "Weekend 200% " + money(weekend) + "/h";
+    }
+
+    public String typePrompt() {
+        return """
+                Which rate is this OT?
+
+                Holiday 100% · Evening 150% · Weekend 200%""";
+    }
+
+    public String upcoming(OtRecordService.UpcomingSalary upcoming) {
+        StringBuilder text = new StringBuilder("📅 Upcoming salary\n\n");
+        text.append("Hourly pay | Base salary\n");
+        text.append(money(upcoming.hourly())).append(" | ").append(money(upcoming.profile().getMonthlySalary()));
+        if (upcoming.next().isEmpty()) {
+            text.append("\n\nNo payday found.");
+            return text.toString();
+        }
+        text.append("\n\nNext: ").append(DAY.format(upcoming.next().get(0).date()));
+        text.append("\nThis payday: ").append(money(upcoming.next().get(0).amount()));
+        if (upcoming.next().size() > 1) {
+            text.append("\n\nAfter that: ").append(DAY.format(upcoming.next().get(1).date()));
+            text.append("\nThis payday: ").append(money(upcoming.next().get(1).amount()));
+        }
+        return text.toString();
     }
 
     public String salarySummary(SalaryProfileEntity profile) {

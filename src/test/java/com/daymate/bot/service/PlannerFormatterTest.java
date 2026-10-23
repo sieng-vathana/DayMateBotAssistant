@@ -20,9 +20,9 @@ class PlannerFormatterTest {
     @Test
     void welcomeMatchesDayMateCopy() {
         String text = formatter.welcome();
-        assertThat(text).contains("Welcome to DayMate — Your Daily Planner Bot");
-        assertThat(text).contains("/today — View today's tasks");
-        assertThat(text).contains("/add — Add a new task");
+        assertThat(text).contains("Welcome to DayMate");
+        assertThat(text).contains("/ot — Record overtime");
+        assertThat(text).contains("/upcoming_salary — Next payday");
         assertThat(text).contains("Let's make today productive!");
     }
 

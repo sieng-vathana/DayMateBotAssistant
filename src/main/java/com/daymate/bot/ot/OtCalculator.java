@@ -25,6 +25,12 @@ public final class OtCalculator {
 
     public static Quote quote(BigDecimal monthlySalary, LocalDate date, LocalTime start, LocalTime end,
                              int workDaysPerWeek) {
+        int week = workDaysPerWeek >= 6 ? 6 : 5;
+        return quote(monthlySalary, start, end, OtShift.forDate(date, week), week);
+    }
+
+    public static Quote quote(BigDecimal monthlySalary, LocalTime start, LocalTime end, OtShift shift,
+                             int workDaysPerWeek) {
         if (monthlySalary == null || monthlySalary.signum() <= 0) {
             throw new IllegalArgumentException("Base salary must be greater than 0.");
         }
@@ -39,7 +45,6 @@ public final class OtCalculator {
             throw new IllegalArgumentException("That range does not leave any paid hours.");
         }
         int week = workDaysPerWeek >= 6 ? 6 : 5;
-        OtShift shift = OtShift.forDate(date, week);
         BigDecimal hourly = monthlySalary.divide(hoursPerMonth(week), 10, RoundingMode.HALF_UP);
         BigDecimal rate = hourly.multiply(shift.multiplier()).setScale(2, RoundingMode.HALF_UP);
         BigDecimal amount = paid.multiply(rate).setScale(2, RoundingMode.HALF_UP);

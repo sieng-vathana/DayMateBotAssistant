@@ -12,11 +12,12 @@ public enum ConversationStep {
     PAY_DAY,
     PAY_DAY_2,
     BASE_SALARY,
-    OT_TIME;
+    OT_TIME,
+    OT_TYPE;
 
     public boolean isOtSetup() {
         return switch (this) {
-            case ACLEDA, WORK_DAYS, PAY_TIMES, PAY_DAY, PAY_DAY_2, BASE_SALARY, OT_TIME -> true;
+            case ACLEDA, WORK_DAYS, PAY_TIMES, PAY_DAY, PAY_DAY_2, BASE_SALARY, OT_TIME, OT_TYPE -> true;
             default -> false;
         };
     }

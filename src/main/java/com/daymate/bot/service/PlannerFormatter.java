@@ -22,18 +22,14 @@ public class PlannerFormatter {
 
     public String welcome() {
         return """
-                👋 Welcome to DayMate — Your Daily Planner Bot
+                👋 Welcome to DayMate
 
-                I help you plan, track, and complete your daily tasks.
+                I record overtime and show your next payday.
 
-                Available commands:
-                /today — View today's tasks
-                /add — Add a new task
-                /done — Mark a task as complete
-                /list — List all pending tasks
                 /ot — Record overtime
                 /otlist — Overtime this month
-                /salary — Base salary and paydays
+                /salary — Hourly pay and base salary
+                /upcoming_salary — Next payday
                 /help — Show this help message
 
                 Let's make today productive! 💪""";
@@ -43,33 +39,21 @@ public class PlannerFormatter {
         return """
                 ❓ DayMate Help
 
-                /today — See today's agenda and progress
-                /add — Create a task (title, category, priority, due time)
-                /done — Mark a task complete
-                /list — Pending + completed today
-                /recurring — Daily and weekly repeating tasks
                 /ot or /ot-record — Record overtime (set salary first)
                 /otlist or /ot-list — Overtime records for this month
-                /salary — Base salary, pay count, and payday
-                /cancel — Cancel the current question
+                /salary — Hourly pay and base salary
+                /upcoming_salary — Next payday
                 /help — This message
 
+                After the time, choose a rate:
+                • Holiday 100%
+                • Evening 150%
+                • Weekend 200%
+
                 Overtime uses Phnom Penh time.
-                ACLEDA works 5 days a week. Saturday and Sunday are Weekend at 200%.
-                The hourly rate is monthly salary ÷ (5 × 52 ÷ 12 × 8). A $400 salary is $3.46/h at 150% and $4.62/h at 200%.
-                A 6-day week divides by 208 hours, and only Sunday is Weekend at 200%.
+                A 5-day week treats Saturday and Sunday as weekend.
                 A shift of 6 hours or more includes a 1 hour break.
-                ACLEDA paydays are day 12 and day 26.
-
-                Tasks have:
-                • ID (T-001)
-                • Category: Work, Personal, Health
-                • Priority: High, Medium, Low
-                • Due time
-                • Status: Pending, In Progress, Completed
-                • Recurring: daily or weekly
-
-                Tap the inline buttons under a task to Start, Complete, Snooze, or Delete it.""";
+                Paydays for the suggested schedule are day 12 and day 26.""";
     }
 
     public String today(TaskSaveService.Agenda agenda) {

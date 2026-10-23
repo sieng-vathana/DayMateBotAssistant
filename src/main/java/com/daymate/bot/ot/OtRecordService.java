@@ -63,12 +63,12 @@ public class OtRecordService {
     }
 
     @Transactional
-    public SavedOt record(Long userId, Long chatId, OtTimeRange range) {
+    public SavedOt record(Long userId, Long chatId, OtTimeRange range, com.daymate.bot.domain.OtShift shift) {
         SalaryProfileEntity profile = salaries.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("Set your base salary before recording OT."));
         LocalDate today = LocalDate.now(clock);
         OtCalculator.Quote quote = OtCalculator.quote(
-                profile.getMonthlySalary(), today, range.start(), range.end(), profile.resolvedWorkDaysPerWeek());
+                profile.getMonthlySalary(), range.start(), range.end(), shift, profile.resolvedWorkDaysPerWeek());
         int number = nextNumber(userId);
         OtRecordEntity saved = records.save(new OtRecordEntity(
                 userId, chatId, number, today, range.start(), range.end(), quote.shift(),
@@ -99,6 +99,47 @@ public class OtRecordService {
         return zoneId;
     }
 
+    @Transactional(readOnly = true)
+    public UpcomingSalary upcoming(Long userId) {
+        SalaryProfileEntity profile = salaries.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("Set your base salary before checking the next payday."));
+        LocalDate today = LocalDate.now(clock);
+        java.util.ArrayList<LocalDate> dates = new java.util.ArrayList<>();
+        YearMonth month = YearMonth.from(today);
+        YearMonth limit = month.plusMonths(14);
+        while (dates.size() < 4 && month.isBefore(limit)) {
+            for (int day : payDays(profile)) {
+                LocalDate date = month.atDay(Math.min(day, month.lengthOfMonth()));
+                if (!date.isBefore(today) && !dates.contains(date)) {
+                    dates.add(date);
+                }
+            }
+            month = month.plusMonths(1);
+        }
+        dates.sort(java.util.Comparator.naturalOrder());
+        if (dates.size() > 2) {
+            dates = new java.util.ArrayList<>(dates.subList(0, 2));
+        }
+        BigDecimal hourly = profile.getMonthlySalary().divide(
+                OtCalculator.hoursPerMonth(profile.resolvedWorkDaysPerWeek()), 10, java.math.RoundingMode.HALF_UP);
+        BigDecimal each = profile.getMonthlySalary().divide(
+                BigDecimal.valueOf(Math.max(1, profile.getPayTimes())), 2, java.math.RoundingMode.HALF_UP);
+        java.util.ArrayList<Payday> pays = new java.util.ArrayList<>();
+        for (LocalDate date : dates) {
+            pays.add(new Payday(date, each));
+        }
+        return new UpcomingSalary(profile, hourly.setScale(2, java.math.RoundingMode.HALF_UP), pays);
+    }
+
+    private static int[] payDays(SalaryProfileEntity profile) {
+        if (profile.getPayTimes() == 2 && profile.getPayDay2() != null) {
+            int first = profile.getPayDay1();
+            int second = profile.getPayDay2();
+            return first <= second ? new int[] {first, second} : new int[] {second, first};
+        }
+        return new int[] {profile.getPayDay1()};
+    }
+
     private int nextNumber(Long userId) {
         Integer max = records.findMaxRecordNumber(userId);
         return max == null ? 1 : max + 1;
@@ -114,5 +155,11 @@ public class OtRecordService {
     }
 
     public record MonthSummary(YearMonth month, List<OtRecordEntity> records, BigDecimal paidHours, BigDecimal amount) {
+    }
+
+    public record Payday(LocalDate date, BigDecimal amount) {
+    }
+
+    public record UpcomingSalary(SalaryProfileEntity profile, BigDecimal hourly, List<Payday> next) {
     }
 }

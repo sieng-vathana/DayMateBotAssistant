@@ -1,6 +1,7 @@
 package com.daymate.bot.router;
 
 import com.daymate.bot.domain.ConversationStep;
+import com.daymate.bot.domain.OtShift;
 import com.daymate.bot.domain.OtTimeRange;
 import com.daymate.bot.entity.ConversationStateEntity;
 import com.daymate.bot.entity.SalaryProfileEntity;
@@ -54,7 +55,7 @@ public class OtHandler {
             return;
         }
         if (preset.isPresent()) {
-            saveRange(chatId, userId, preset.get());
+            askType(chatId, userId, preset.get());
             return;
         }
         askTime(chatId, userId);
@@ -70,6 +71,14 @@ public class OtHandler {
         telegram.sendMessage(chatId, formatter.list(ot.monthSummary(userId, ot.currentMonth())));
     }
 
+    public void upcoming(Long chatId, Long userId) {
+        try {
+            telegram.sendMessage(chatId, formatter.upcoming(ot.upcoming(userId)));
+        } catch (IllegalArgumentException exception) {
+            telegram.sendMessage(chatId, exception.getMessage());
+        }
+    }
+
     public void handleText(ConversationStateEntity state, Long chatId, String text) {
         switch (state.getStep()) {
             case ACLEDA -> acceptAcleda(state, chatId, text);
@@ -78,6 +87,7 @@ public class OtHandler {
             case PAY_DAY, PAY_DAY_2 -> acceptDay(state, chatId, text);
             case BASE_SALARY -> acceptSalary(state, chatId, text);
             case OT_TIME -> acceptTime(state, chatId, text);
+            case OT_TYPE -> acceptType(state, chatId, text);
             default -> telegram.sendMessage(chatId, formatter.needSalaryFirst());
         }
     }
@@ -123,6 +133,10 @@ public class OtHandler {
         }
         if (data.equals("ot:times:1") || data.equals("ot:times:2")) {
             acceptTimes(state, chatId, data.endsWith("2") ? "2" : "1");
+            return true;
+        }
+        if (data.startsWith("ot:shift:")) {
+            acceptType(state, chatId, data);
             return true;
         }
         return false;
@@ -246,7 +260,7 @@ public class OtHandler {
         conversations.clear(chatId);
         telegram.sendMessage(chatId, formatter.salarySaved(profile));
         if (pending != null) {
-            OtTimeParser.parse(pending).ifPresent(range -> saveRange(chatId, state.getUserId(), range));
+            OtTimeParser.parse(pending).ifPresent(range -> askType(chatId, state.getUserId(), range));
             return;
         }
         if (resume) {
@@ -260,8 +274,23 @@ public class OtHandler {
             telegram.sendHtml(chatId, formatter.invalidTime(), cancelKeyboard());
             return;
         }
+        askType(chatId, state.getUserId(), range.get());
+    }
+
+    private void acceptType(ConversationStateEntity state, Long chatId, String text) {
+        Optional<OtShift> shift = OtShift.parse(text);
+        if (shift.isEmpty()) {
+            telegram.sendMessage(chatId, formatter.typePrompt(), typeKeyboard());
+            return;
+        }
+        Optional<OtTimeRange> range = OtTimeParser.parse(state.getPendingRange());
+        if (range.isEmpty()) {
+            conversations.clear(chatId);
+            telegram.sendHtml(chatId, formatter.invalidTime(), cancelKeyboard());
+            return;
+        }
         conversations.clear(chatId);
-        saveRange(chatId, state.getUserId(), range.get());
+        saveRange(chatId, state.getUserId(), range.get(), shift.get());
     }
 
     private void askTime(Long chatId, Long userId) {
@@ -270,9 +299,17 @@ public class OtHandler {
         telegram.sendMessage(chatId, formatter.timePrompt(), cancelKeyboard());
     }
 
-    private void saveRange(Long chatId, Long userId, OtTimeRange range) {
+    private void askType(Long chatId, Long userId, OtTimeRange range) {
+        ConversationStateEntity state = new ConversationStateEntity(
+                chatId, userId, ConversationStep.OT_TYPE, Instant.now(clock));
+        state.setPendingRange(range.start() + "-" + range.end());
+        conversations.save(state);
+        telegram.sendMessage(chatId, formatter.typePrompt(), typeKeyboard());
+    }
+
+    private void saveRange(Long chatId, Long userId, OtTimeRange range, OtShift shift) {
         try {
-            telegram.sendMessage(chatId, formatter.saved(ot.record(userId, chatId, range)));
+            telegram.sendMessage(chatId, formatter.saved(ot.record(userId, chatId, range, shift)));
         } catch (IllegalArgumentException exception) {
             telegram.sendMessage(chatId, exception.getMessage(), cancelKeyboard());
         }
@@ -299,6 +336,12 @@ public class OtHandler {
 
     private static List<List<Map<String, String>>> acledaKeyboard() {
         return List.of(List.of(button("Yes, ACLEDA", "ot:acleda:yes"), button("No", "ot:acleda:no")));
+    }
+
+    private static List<List<Map<String, String>>> typeKeyboard() {
+        return List.of(
+                List.of(button("Holiday 100%", "ot:shift:HOLIDAY")),
+                List.of(button("Evening 150%", "ot:shift:EVENING"), button("Weekend 200%", "ot:shift:WEEKEND")));
     }
 
     private static List<List<Map<String, String>>> workDaysKeyboard() {

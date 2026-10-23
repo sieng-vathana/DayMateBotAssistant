@@ -7,16 +7,11 @@ DayMate is a Telegram daily planner. Telegram is the user interface. Spring Boot
 | Command | Action |
 | --- | --- |
 | `/start` | Welcome and command list |
-| `/today` | Today's agenda and progress (`2/5 done`) |
-| `/add` | Create a task: title → category → priority → due time → repeat |
-| `/done` | Mark a task complete (buttons or `/done T-001`) |
-| `/list` | Pending tasks plus completed today |
-| `/recurring` | Daily and weekly repeating tasks |
-| `/ot`, `/ot-record` | Record overtime for today (Phnom Penh time) |
+| `/ot`, `/ot-record` | Record overtime, then choose Holiday 100%, Evening 150%, or Weekend 200% |
 | `/otlist`, `/ot-list` | Overtime records for this month |
-| `/salary` | Base salary and payday |
+| `/salary` | Hourly pay and base salary |
+| `/upcoming_salary` | Next payday |
 | `/help` | Help |
-| `/cancel` | Cancel an add-task flow |
 | `/id` | Print your numeric Telegram user ID |
 
 Each task has an ID (`T-001`), category (Work, Personal, Health), priority (High, Medium, Low), due time, status (Pending, In Progress, Completed), and optional daily or weekly recurrence.
@@ -58,16 +53,11 @@ In BotFather, set the command list:
 
 ```
 start - Welcome and command list
-today - View today's tasks
-add - Add a new task
-done - Mark a task as complete
-list - List all pending tasks
-recurring - Show repeating tasks
 ot - Record overtime
 otlist - Overtime records this month
-salary - Base salary and payday
+salary - Hourly pay and base salary
+upcoming_salary - Next payday
 help - Show help
-cancel - Cancel the current action
 id - Show your Telegram user ID
 ```
 

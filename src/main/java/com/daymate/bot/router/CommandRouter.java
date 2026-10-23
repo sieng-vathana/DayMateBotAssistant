@@ -207,15 +207,10 @@ public class CommandRouter {
         switch (command) {
             case "/start", "/menu" -> telegram.sendMessage(chatId, formatter.welcome());
             case "/help" -> telegram.sendMessage(chatId, formatter.help());
-            case "/today" -> sendToday(chatId, userId, null, false);
-            case "/list" -> sendList(chatId, userId);
-            case "/add" -> conversationHandler.startAdd(chatId, userId);
-            case "/done" -> handleDone(chatId, userId, argument);
-            case "/recurring" -> telegram.sendMessage(chatId, formatter.recurring(tasks.recurring(userId)));
             case "/ot", "/ot-record" -> otHandler.startRecord(chatId, userId, argument);
             case "/otlist", "/ot-list" -> otHandler.list(chatId, userId);
             case "/salary" -> otHandler.startSalary(chatId, userId);
-            case "/cancel" -> telegram.sendMessage(chatId, formatter.cancelled());
+            case "/upcoming_salary", "/upcomingsalary", "/upcoming-salary" -> otHandler.upcoming(chatId, userId);
             default -> telegram.sendMessage(chatId, formatter.unknownCommand());
         }
     }
