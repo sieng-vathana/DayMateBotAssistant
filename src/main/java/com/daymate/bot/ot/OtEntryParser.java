@@ -39,6 +39,30 @@ public final class OtEntryParser {
         return Optional.of(new ParsedOt(date.get(), range.get(), shift));
     }
 
+    public static Optional<TimeOnly> parseTimeOnly(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return Optional.empty();
+        }
+        Matcher matcher = Pattern.compile(
+                "^(\\d{1,2}:\\d{2}\\s*[-–—]\\s*\\d{1,2}:\\d{2})(?:\\s+(\\S+))?$",
+                Pattern.CASE_INSENSITIVE).matcher(raw.trim().replace('.', ':'));
+        if (!matcher.matches()) {
+            return Optional.empty();
+        }
+        Optional<OtTimeRange> range = OtTimeParser.parse(matcher.group(1));
+        if (range.isEmpty()) {
+            return Optional.empty();
+        }
+        OtShift shift = null;
+        if (matcher.group(2) != null) {
+            shift = OtShift.parse(matcher.group(2)).orElse(null);
+            if (shift == null) {
+                return Optional.empty();
+            }
+        }
+        return Optional.of(new TimeOnly(range.get(), shift));
+    }
+
     public static Optional<LocalDate> parseDay(String raw, LocalDate today) {
         if (raw == null || raw.isBlank() || today == null) {
             return Optional.empty();
@@ -69,5 +93,8 @@ public final class OtEntryParser {
     }
 
     public record ParsedOt(LocalDate date, OtTimeRange range, OtShift shift) {
+    }
+
+    public record TimeOnly(OtTimeRange range, OtShift shift) {
     }
 }

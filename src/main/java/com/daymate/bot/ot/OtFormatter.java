@@ -37,8 +37,16 @@ public class OtFormatter {
 
     public String dayChosen(java.time.LocalDate date) {
         return Texts.t(
-                "📅 " + Texts.day(date) + "\n\nOne tap saves this day.",
-                "📅 " + Texts.day(date) + "\n\nចុចមួយដង រក្សាទុកថ្ងៃនេះ។");
+                "📅 " + Texts.day(date) + "\n\nTap a time, or type your own for this day:\n"
+                        + "<b>13:00-19:00</b>\n<b>13:00-19:00 holiday</b>",
+                "📅 " + Texts.day(date) + "\n\nចុចម៉ោង ឬវាយម៉ោងផ្ទាល់សម្រាប់ថ្ងៃនេះ៖\n"
+                        + "<b>13:00-19:00</b>\n<b>13:00-19:00 holiday</b>");
+    }
+
+    public String invalidTimeForDay() {
+        return Texts.t(
+                "Type the time for this day. Example: <b>13:00-19:00</b> or <b>13:00-19:00 holiday</b>.",
+                "វាយម៉ោងសម្រាប់ថ្ងៃនេះ។ ឧទាហរណ៍៖ <b>13:00-19:00</b> ឬ <b>13:00-19:00 holiday</b>។");
     }
 
     public String acledaPrompt() {

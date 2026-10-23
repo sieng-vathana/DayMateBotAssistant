@@ -302,12 +302,32 @@ public class OtHandler {
             saveParsed(chatId, state.getUserId(), parsed.get());
             return;
         }
+        LocalDate chosen = chosenDate(state);
+        if (chosen != null) {
+            Optional<OtEntryParser.TimeOnly> typed = OtEntryParser.parseTimeOnly(text);
+            if (typed.isPresent()) {
+                OtShift shift = typed.get().shift() == null
+                        ? OtShift.forDate(chosen, workDays(state.getUserId()))
+                        : typed.get().shift();
+                conversations.clear(chatId);
+                saveRange(chatId, state.getUserId(), chosen, typed.get().range(), shift);
+                return;
+            }
+        }
         Optional<LocalDate> day = OtEntryParser.parseDay(text, ot.today());
         if (day.isPresent()) {
             showDay(chatId, state.getUserId(), day.get());
             return;
         }
-        telegram.sendHtml(chatId, formatter.invalidEntry(), null);
+        telegram.sendHtml(chatId, chosen == null ? formatter.invalidEntry() : formatter.invalidTimeForDay(), null);
+    }
+
+    private static LocalDate chosenDate(ConversationStateEntity state) {
+        String pending = state.getPendingRange();
+        if (pending == null || !pending.matches("\\d{4}-\\d{2}-\\d{2}")) {
+            return null;
+        }
+        return LocalDate.parse(pending);
     }
 
     private void showHome(Long chatId, Long userId) {
@@ -323,7 +343,7 @@ public class OtHandler {
                 chatId, userId, ConversationStep.OT_TIME, Instant.now(clock));
         state.setPendingRange(date.toString());
         conversations.save(state);
-        telegram.sendMessage(chatId, formatter.dayChosen(date), timeKeyboard(date, workDays(userId)));
+        telegram.sendHtml(chatId, formatter.dayChosen(date), timeKeyboard(date, workDays(userId)));
     }
 
     private void saveParsed(Long chatId, Long userId, OtEntryParser.ParsedOt parsed) {
@@ -394,6 +414,8 @@ public class OtHandler {
                 Texts.t("Today 16:30-17:30", "ថ្ងៃនេះ 16:30-17:30"))));
         rows.add(List.of(quick(today, "16:30", "18:30", workDays,
                 Texts.t("Today 16:30-18:30", "ថ្ងៃនេះ 16:30-18:30"))));
+        rows.add(List.of(quick(today, "13:00", "19:00", workDays,
+                Texts.t("Today 13:00-19:00", "ថ្ងៃនេះ 13:00-19:00"))));
         YearMonth month = YearMonth.from(today);
         List<Map<String, String>> row = new ArrayList<>();
         for (int day = 1; day <= month.lengthOfMonth(); day++) {
@@ -418,6 +440,8 @@ public class OtHandler {
                 List.of(slot(date, "16:30", "17:30", auto)),
                 List.of(slot(date, "16:30", "18:30", auto)),
                 List.of(slot(date, "09:00", "17:30", auto)),
+                List.of(slot(date, "13:00", "19:00", auto)),
+                List.of(slot(date, "08:00", "17:00", auto)),
                 List.of(slot(date, "08:30", "17:30", OtShift.HOLIDAY)),
                 List.of(button(Texts.t("Another day", "ថ្ងៃផ្សេង"), "ot:home"),
                         button(Texts.t("❌ Cancel", "❌ បោះបង់"), "ot:cancel")));

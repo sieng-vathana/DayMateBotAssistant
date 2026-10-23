@@ -72,6 +72,14 @@ class OtCalculatorTest {
                     assertThat(parsed.shift()).isEqualTo(OtShift.HOLIDAY);
                 });
         assertThat(OtEntryParser.parseDay("yesterday", today)).contains(LocalDate.of(2026, 10, 23));
+        assertThat(OtEntryParser.parseTimeOnly("13:00-19:00"))
+                .get()
+                .satisfies(typed -> {
+                    assertThat(typed.range().start()).isEqualTo(LocalTime.of(13, 0));
+                    assertThat(typed.range().end()).isEqualTo(LocalTime.of(19, 0));
+                    assertThat(typed.shift()).isNull();
+                });
+        assertThat(OtEntryParser.parseTimeOnly("13:00-19:00 holiday").get().shift()).isEqualTo(OtShift.HOLIDAY);
     }
 
     @Test
