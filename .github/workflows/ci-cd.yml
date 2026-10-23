@@ -68,8 +68,13 @@ jobs:
             sudo mv /tmp/daymate-bot-assistant.jar /opt/daymate/daymate-bot-assistant.jar
             sudo chown daymate:daymate /opt/daymate/daymate-bot-assistant.jar
             sudo systemctl restart daymate
-            sleep 8
-            sudo systemctl is-active daymate
-            curl -fsS --max-time 10 http://127.0.0.1:8000/health
-            echo
+            for _ in $(seq 1 30); do
+              if curl -fsS --max-time 2 http://127.0.0.1:8000/health; then
+                echo
+                exit 0
+              fi
+              sleep 2
+            done
+            sudo journalctl -u daymate --no-pager -n 40
+            exit 1
           EOF
