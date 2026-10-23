@@ -55,6 +55,26 @@ class OtCalculatorTest {
     }
 
     @Test
+    void oneLineStartsWithTheDay() {
+        LocalDate today = LocalDate.of(2026, 10, 24);
+        assertThat(OtEntryParser.parse("24 16:30-17:30", today))
+                .get()
+                .satisfies(parsed -> {
+                    assertThat(parsed.date()).isEqualTo(LocalDate.of(2026, 10, 24));
+                    assertThat(parsed.range().start()).isEqualTo(LocalTime.of(16, 30));
+                    assertThat(parsed.range().end()).isEqualTo(LocalTime.of(17, 30));
+                    assertThat(parsed.shift()).isNull();
+                });
+        assertThat(OtEntryParser.parse("3/10 09:00-17:30 holiday", today))
+                .get()
+                .satisfies(parsed -> {
+                    assertThat(parsed.date()).isEqualTo(LocalDate.of(2026, 10, 3));
+                    assertThat(parsed.shift()).isEqualTo(OtShift.HOLIDAY);
+                });
+        assertThat(OtEntryParser.parseDay("yesterday", today)).contains(LocalDate.of(2026, 10, 23));
+    }
+
+    @Test
     void parsesDashSeparatedRange() {
         assertThat(OtTimeParser.parse("16:30-17:30"))
                 .contains(new OtTimeRange(LocalTime.of(16, 30), LocalTime.of(17, 30)));

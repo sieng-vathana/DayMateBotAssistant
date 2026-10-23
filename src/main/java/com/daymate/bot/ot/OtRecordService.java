@@ -63,19 +63,22 @@ public class OtRecordService {
     }
 
     @Transactional
-    public SavedOt record(Long userId, Long chatId, OtTimeRange range, com.daymate.bot.domain.OtShift shift) {
+    public SavedOt record(Long userId, Long chatId, LocalDate workDate, OtTimeRange range, com.daymate.bot.domain.OtShift shift) {
         SalaryProfileEntity profile = salaries.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("Set your base salary before recording OT."));
-        LocalDate today = LocalDate.now(clock);
         OtCalculator.Quote quote = OtCalculator.quote(
                 profile.getMonthlySalary(), range.start(), range.end(), shift, profile.resolvedWorkDaysPerWeek());
         int number = nextNumber(userId);
         OtRecordEntity saved = records.save(new OtRecordEntity(
-                userId, chatId, number, today, range.start(), range.end(), quote.shift(),
+                userId, chatId, number, workDate, range.start(), range.end(), quote.shift(),
                 quote.grossHours(), quote.breakHours(), quote.paidHours(), quote.hourlyRate(), quote.amount(),
                 Instant.now(clock)));
-        MonthSummary month = monthSummary(userId, YearMonth.from(today));
+        MonthSummary month = monthSummary(userId, YearMonth.from(workDate));
         return new SavedOt(saved, month);
+    }
+
+    public LocalDate today() {
+        return LocalDate.now(clock);
     }
 
     @Transactional(readOnly = true)

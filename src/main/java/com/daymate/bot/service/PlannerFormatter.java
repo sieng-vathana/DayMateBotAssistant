@@ -45,10 +45,13 @@ public class PlannerFormatter {
                 /upcoming_salary — Next payday
                 /help — This message
 
-                After the time, choose a rate:
-                • Holiday 100%
-                • Evening 150%
-                • Weekend 200%
+                /ot saves in one line. Day first:
+                24 16:30-17:30
+                24 16:30-17:30 holiday
+
+                Weekday = Evening 150%. Sat/Sun = Weekend 200%.
+                Add holiday for Holiday 100%.
+                Or tap a day, then one time button.
 
                 Overtime uses Phnom Penh time.
                 A 5-day week treats Saturday and Sunday as weekend.

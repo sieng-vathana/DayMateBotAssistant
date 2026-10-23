@@ -5,9 +5,9 @@ import com.daymate.bot.domain.OtShift;
 import com.daymate.bot.domain.OtTimeRange;
 import com.daymate.bot.entity.ConversationStateEntity;
 import com.daymate.bot.entity.SalaryProfileEntity;
+import com.daymate.bot.ot.OtEntryParser;
 import com.daymate.bot.ot.OtFormatter;
 import com.daymate.bot.ot.OtRecordService;
-import com.daymate.bot.ot.OtTimeParser;
 import com.daymate.bot.service.ConversationService;
 import com.daymate.bot.telegram.TelegramApiClient;
 import org.springframework.stereotype.Component;
@@ -15,6 +15,11 @@ import org.springframework.stereotype.Component;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.YearMonth;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -37,28 +42,33 @@ public class OtHandler {
     }
 
     public void startRecord(Long chatId, Long userId, String argument) {
-        Optional<OtTimeRange> preset = argument == null || argument.isBlank()
-                ? Optional.empty()
-                : OtTimeParser.parse(argument);
-        if (argument != null && !argument.isBlank() && preset.isEmpty()) {
-            askTime(chatId, userId);
-            telegram.sendHtml(chatId, formatter.invalidTime(), cancelKeyboard());
-            return;
-        }
         if (ot.salary(userId).isEmpty()) {
             ConversationStateEntity state = conversations.start(chatId, userId);
             state.setStep(ConversationStep.ACLEDA);
             state.setResumeOt(true);
-            preset.ifPresent(range -> state.setPendingRange(range.start() + "-" + range.end()));
+            if (argument != null && !argument.isBlank()) {
+                state.setPendingRange(argument.trim());
+            }
             conversations.save(state);
             telegram.sendMessage(chatId, formatter.acledaPrompt(), acledaKeyboard());
             return;
         }
-        if (preset.isPresent()) {
-            askType(chatId, userId, preset.get());
+        if (argument != null && !argument.isBlank()) {
+            Optional<OtEntryParser.ParsedOt> parsed = OtEntryParser.parse(argument, ot.today());
+            if (parsed.isPresent()) {
+                saveParsed(chatId, userId, parsed.get());
+                return;
+            }
+            Optional<LocalDate> day = OtEntryParser.parseDay(argument, ot.today());
+            if (day.isPresent()) {
+                showDay(chatId, userId, day.get());
+                return;
+            }
+            showHome(chatId, userId);
+            telegram.sendHtml(chatId, formatter.invalidEntry(), null);
             return;
         }
-        askTime(chatId, userId);
+        showHome(chatId, userId);
     }
 
     public void startSalary(Long chatId, Long userId) {
@@ -86,8 +96,7 @@ public class OtHandler {
             case PAY_TIMES -> acceptTimes(state, chatId, text);
             case PAY_DAY, PAY_DAY_2 -> acceptDay(state, chatId, text);
             case BASE_SALARY -> acceptSalary(state, chatId, text);
-            case OT_TIME -> acceptTime(state, chatId, text);
-            case OT_TYPE -> acceptType(state, chatId, text);
+            case OT_TIME, OT_TYPE -> acceptLine(state, chatId, text);
             default -> telegram.sendMessage(chatId, formatter.needSalaryFirst());
         }
     }
@@ -102,6 +111,25 @@ public class OtHandler {
         if (data.equals("ot:change")) {
             telegram.answerCallback(callbackId, "Update salary", false);
             beginSalary(chatId, userId, false);
+            return true;
+        }
+        if (data.equals("ot:home")) {
+            telegram.answerCallback(callbackId, "Days", false);
+            showHome(chatId, userId);
+            return true;
+        }
+        if (data.startsWith("ot:day:")) {
+            telegram.answerCallback(callbackId, "Day", false);
+            showDay(chatId, userId, LocalDate.parse(data.substring("ot:day:".length())));
+            return true;
+        }
+        if (data.startsWith("ot:go:")) {
+            telegram.answerCallback(callbackId, "Saved", false);
+            if (ot.salary(userId).isEmpty()) {
+                telegram.sendMessage(chatId, formatter.needSalaryFirst());
+                return true;
+            }
+            saveFromToken(chatId, userId, data);
             return true;
         }
         ConversationStateEntity state = conversations.get(chatId).orElse(null);
@@ -133,10 +161,6 @@ public class OtHandler {
         }
         if (data.equals("ot:times:1") || data.equals("ot:times:2")) {
             acceptTimes(state, chatId, data.endsWith("2") ? "2" : "1");
-            return true;
-        }
-        if (data.startsWith("ot:shift:")) {
-            acceptType(state, chatId, data);
             return true;
         }
         return false;
@@ -259,60 +283,83 @@ public class OtHandler {
         boolean resume = state.isResumeOt();
         conversations.clear(chatId);
         telegram.sendMessage(chatId, formatter.salarySaved(profile));
-        if (pending != null) {
-            OtTimeParser.parse(pending).ifPresent(range -> askType(chatId, state.getUserId(), range));
-            return;
+        if (pending != null && !pending.isBlank()) {
+            Optional<OtEntryParser.ParsedOt> parsed = OtEntryParser.parse(pending, ot.today());
+            if (parsed.isPresent()) {
+                saveParsed(chatId, state.getUserId(), parsed.get());
+                return;
+            }
         }
         if (resume) {
-            askTime(chatId, state.getUserId());
+            showHome(chatId, state.getUserId());
         }
     }
 
-    private void acceptTime(ConversationStateEntity state, Long chatId, String text) {
-        Optional<OtTimeRange> range = OtTimeParser.parse(text);
-        if (range.isEmpty()) {
-            telegram.sendHtml(chatId, formatter.invalidTime(), cancelKeyboard());
+    private void acceptLine(ConversationStateEntity state, Long chatId, String text) {
+        Optional<OtEntryParser.ParsedOt> parsed = OtEntryParser.parse(text, ot.today());
+        if (parsed.isPresent()) {
+            saveParsed(chatId, state.getUserId(), parsed.get());
             return;
         }
-        askType(chatId, state.getUserId(), range.get());
-    }
-
-    private void acceptType(ConversationStateEntity state, Long chatId, String text) {
-        Optional<OtShift> shift = OtShift.parse(text);
-        if (shift.isEmpty()) {
-            telegram.sendMessage(chatId, formatter.typePrompt(), typeKeyboard());
+        Optional<LocalDate> day = OtEntryParser.parseDay(text, ot.today());
+        if (day.isPresent()) {
+            showDay(chatId, state.getUserId(), day.get());
             return;
         }
-        Optional<OtTimeRange> range = OtTimeParser.parse(state.getPendingRange());
-        if (range.isEmpty()) {
-            conversations.clear(chatId);
-            telegram.sendHtml(chatId, formatter.invalidTime(), cancelKeyboard());
-            return;
-        }
-        conversations.clear(chatId);
-        saveRange(chatId, state.getUserId(), range.get(), shift.get());
+        telegram.sendHtml(chatId, formatter.invalidEntry(), null);
     }
 
-    private void askTime(Long chatId, Long userId) {
-        ConversationStateEntity state = new ConversationStateEntity(chatId, userId, ConversationStep.OT_TIME, Instant.now(clock));
-        conversations.save(state);
-        telegram.sendMessage(chatId, formatter.timePrompt(), cancelKeyboard());
-    }
-
-    private void askType(Long chatId, Long userId, OtTimeRange range) {
+    private void showHome(Long chatId, Long userId) {
         ConversationStateEntity state = new ConversationStateEntity(
-                chatId, userId, ConversationStep.OT_TYPE, Instant.now(clock));
-        state.setPendingRange(range.start() + "-" + range.end());
+                chatId, userId, ConversationStep.OT_TIME, Instant.now(clock));
         conversations.save(state);
-        telegram.sendMessage(chatId, formatter.typePrompt(), typeKeyboard());
+        LocalDate today = ot.today();
+        telegram.sendHtml(chatId, formatter.oneLinePrompt(today), homeKeyboard(today, workDays(userId)));
     }
 
-    private void saveRange(Long chatId, Long userId, OtTimeRange range, OtShift shift) {
+    private void showDay(Long chatId, Long userId, LocalDate date) {
+        ConversationStateEntity state = new ConversationStateEntity(
+                chatId, userId, ConversationStep.OT_TIME, Instant.now(clock));
+        state.setPendingRange(date.toString());
+        conversations.save(state);
+        telegram.sendMessage(chatId, formatter.dayChosen(date), timeKeyboard(date, workDays(userId)));
+    }
+
+    private void saveParsed(Long chatId, Long userId, OtEntryParser.ParsedOt parsed) {
+        int week = workDays(userId);
+        OtShift shift = parsed.shift() == null ? OtShift.forDate(parsed.date(), week) : parsed.shift();
+        conversations.clear(chatId);
+        saveRange(chatId, userId, parsed.date(), parsed.range(), shift);
+    }
+
+    private void saveFromToken(Long chatId, Long userId, String data) {
+        String[] parts = data.split(":");
+        if (parts.length != 6) {
+            telegram.sendHtml(chatId, formatter.invalidEntry(), null);
+            return;
+        }
+        LocalDate date = LocalDate.parse(parts[2], DateTimeFormatter.BASIC_ISO_DATE);
+        LocalTime start = LocalTime.parse(parts[3], DateTimeFormatter.ofPattern("HHmm"));
+        LocalTime end = LocalTime.parse(parts[4], DateTimeFormatter.ofPattern("HHmm"));
+        OtShift shift = switch (parts[5]) {
+            case "H" -> OtShift.HOLIDAY;
+            case "W" -> OtShift.WEEKEND;
+            default -> OtShift.EVENING;
+        };
+        conversations.clear(chatId);
+        saveRange(chatId, userId, date, new OtTimeRange(start, end), shift);
+    }
+
+    private void saveRange(Long chatId, Long userId, LocalDate date, OtTimeRange range, OtShift shift) {
         try {
-            telegram.sendMessage(chatId, formatter.saved(ot.record(userId, chatId, range, shift)));
+            telegram.sendMessage(chatId, formatter.saved(ot.record(userId, chatId, date, range, shift)));
         } catch (IllegalArgumentException exception) {
             telegram.sendMessage(chatId, exception.getMessage(), cancelKeyboard());
         }
+    }
+
+    private int workDays(Long userId) {
+        return ot.salary(userId).map(SalaryProfileEntity::resolvedWorkDaysPerWeek).orElse(5);
     }
 
     private static Integer parseDay(String text) {
@@ -338,10 +385,54 @@ public class OtHandler {
         return List.of(List.of(button("Yes, ACLEDA", "ot:acleda:yes"), button("No", "ot:acleda:no")));
     }
 
-    private static List<List<Map<String, String>>> typeKeyboard() {
+    private List<List<Map<String, String>>> homeKeyboard(LocalDate today, int workDays) {
+        List<List<Map<String, String>>> rows = new ArrayList<>();
+        rows.add(List.of(quick(today, "16:30", "17:30", workDays, "Today 16:30-17:30")));
+        rows.add(List.of(quick(today, "16:30", "18:30", workDays, "Today 16:30-18:30")));
+        YearMonth month = YearMonth.from(today);
+        List<Map<String, String>> row = new ArrayList<>();
+        for (int day = 1; day <= month.lengthOfMonth(); day++) {
+            LocalDate date = month.atDay(day);
+            String label = date.equals(today) ? "•" + day : Integer.toString(day);
+            row.add(button(label, "ot:day:" + date));
+            if (row.size() == 7) {
+                rows.add(row);
+                row = new ArrayList<>();
+            }
+        }
+        if (!row.isEmpty()) {
+            rows.add(row);
+        }
+        rows.add(List.of(button("❌ Cancel", "ot:cancel")));
+        return rows;
+    }
+
+    private List<List<Map<String, String>>> timeKeyboard(LocalDate date, int workDays) {
+        OtShift auto = OtShift.forDate(date, workDays);
         return List.of(
-                List.of(button("Holiday 100%", "ot:shift:HOLIDAY")),
-                List.of(button("Evening 150%", "ot:shift:EVENING"), button("Weekend 200%", "ot:shift:WEEKEND")));
+                List.of(slot(date, "16:30", "17:30", auto)),
+                List.of(slot(date, "16:30", "18:30", auto)),
+                List.of(slot(date, "09:00", "17:30", auto)),
+                List.of(slot(date, "08:30", "17:30", OtShift.HOLIDAY)),
+                List.of(button("Another day", "ot:home"), button("❌ Cancel", "ot:cancel")));
+    }
+
+    private Map<String, String> quick(LocalDate date, String start, String end, int workDays, String label) {
+        return button(label, token(date, start, end, OtShift.forDate(date, workDays)));
+    }
+
+    private Map<String, String> slot(LocalDate date, String start, String end, OtShift shift) {
+        return button(start + "-" + end + " · " + shift.label(), token(date, start, end, shift));
+    }
+
+    private static String token(LocalDate date, String start, String end, OtShift shift) {
+        String code = switch (shift) {
+            case HOLIDAY -> "H";
+            case WEEKEND -> "W";
+            case EVENING -> "E";
+        };
+        return "ot:go:" + date.format(DateTimeFormatter.BASIC_ISO_DATE) + ":"
+                + start.replace(":", "") + ":" + end.replace(":", "") + ":" + code;
     }
 
     private static List<List<Map<String, String>>> workDaysKeyboard() {

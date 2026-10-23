@@ -16,15 +16,24 @@ public class OtFormatter {
     private static final DateTimeFormatter MONTH = DateTimeFormatter.ofPattern("MMM yyyy", Locale.ENGLISH);
     private static final DateTimeFormatter CLOCK = DateTimeFormatter.ofPattern("HH:mm");
 
-    public String timePrompt() {
-        return """
-                🕐 Start and finish time (HH:MM)?
-
-                Format: 09:00-17:00 (dash separated).""";
+    public String oneLinePrompt(java.time.LocalDate today) {
+        String month = today.format(java.time.format.DateTimeFormatter.ofPattern("MMMM yyyy", java.util.Locale.ENGLISH));
+        return "Record OT for " + month + ". Day comes first.\n\n"
+                + "One line saves it:\n"
+                + "<b>" + today.getDayOfMonth() + " 16:30-17:30</b>\n"
+                + "<b>" + today.getDayOfMonth() + " 16:30-17:30 holiday</b>\n\n"
+                + "Weekday = Evening 150%. Sat/Sun = Weekend 200%.\n"
+                + "Add holiday only for Holiday 100%.\n\n"
+                + "Or tap a day, then one time. That second tap saves it.";
     }
 
-    public String invalidTime() {
-        return "I couldn't read that. Use <b>HH:MM-HH:MM</b>, e.g. <b>09:00-17:00</b>.";
+    public String invalidEntry() {
+        return "I couldn't read that. Day first, then the time.\n"
+                + "Example: <b>24 16:30-17:30</b> or <b>24 16:30-17:30 holiday</b>.";
+    }
+
+    public String dayChosen(java.time.LocalDate date) {
+        return "📅 " + DAY.format(date) + "\n\nOne tap saves this day.";
     }
 
     public String acledaPrompt() {
