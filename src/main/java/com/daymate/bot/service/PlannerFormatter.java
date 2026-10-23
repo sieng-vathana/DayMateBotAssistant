@@ -29,6 +29,7 @@ public class PlannerFormatter {
 
                 /ot — Record overtime
                 /otlist — Overtime this month
+                /ot-history — OT by month
                 /salary — Hourly pay and base salary
                 /upcoming_salary — Next payday
                 /language — Switch language
@@ -41,6 +42,7 @@ public class PlannerFormatter {
 
                 /ot — កត់ម៉ោងបន្ថែម
                 /otlist — ម៉ោងបន្ថែមខែនេះ
+                /ot-history — ម៉ោងបន្ថែមតាមខែ
                 /salary — ប្រាក់ម៉ោង និងប្រាក់ខែគោល
                 /upcoming_salary — ថ្ងៃបើកប្រាក់ខែបន្ទាប់
                 /language — ប្ដូរភាសា
@@ -55,6 +57,8 @@ public class PlannerFormatter {
 
                 /ot or /ot-record — Record overtime (set salary first)
                 /otlist or /ot-list — Overtime records for this month
+                /ot-history — Pick a month, or /ot-history 2026-10
+                /del 3 — Delete OT #3
                 /salary — Hourly pay and base salary
                 /upcoming_salary — Next payday
                 /language — English or Khmer
@@ -76,6 +80,8 @@ public class PlannerFormatter {
 
                 /ot ឬ /ot-record — កត់ម៉ោងបន្ថែម (កំណត់ប្រាក់ខែសិន)
                 /otlist ឬ /ot-list — កំណត់ត្រាខែនេះ
+                /ot-history — ជ្រើសខែ ឬ /ot-history 2026-10
+                /del 3 — លុប OT #3
                 /salary — ប្រាក់ម៉ោង និងប្រាក់ខែគោល
                 /upcoming_salary — ថ្ងៃបើកប្រាក់ខែបន្ទាប់
                 /language — អង់គ្លេស ឬ ខ្មែរ

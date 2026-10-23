@@ -98,6 +98,31 @@ public class OtRecordService {
         return YearMonth.now(clock);
     }
 
+    @Transactional(readOnly = true)
+    public List<YearMonth> historyMonths(Long userId) {
+        java.util.LinkedHashSet<YearMonth> months = new java.util.LinkedHashSet<>();
+        for (OtRecordEntity record : records.findByTelegramUserIdOrderByWorkDateDesc(userId)) {
+            months.add(YearMonth.from(record.getWorkDate()));
+        }
+        return List.copyOf(months);
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<OtRecordEntity> findRecord(Long userId, int recordNumber) {
+        return records.findByTelegramUserIdAndRecordNumber(userId, recordNumber);
+    }
+
+    @Transactional
+    public OtRecordEntity deleteRecord(Long userId, int recordNumber, YearMonth month) {
+        OtRecordEntity record = records.findByTelegramUserIdAndRecordNumber(userId, recordNumber)
+                .orElseThrow(() -> new IllegalArgumentException("OT #" + recordNumber + " was not found."));
+        if (month != null && !YearMonth.from(record.getWorkDate()).equals(month)) {
+            throw new IllegalArgumentException("OT #" + recordNumber + " is not in " + month + ".");
+        }
+        records.delete(record);
+        return record;
+    }
+
     public ZoneId zoneId() {
         return zoneId;
     }

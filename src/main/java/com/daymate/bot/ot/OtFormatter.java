@@ -201,7 +201,47 @@ public class OtFormatter {
                     .append('\n').append(clockLine(record));
         }
         text.append("\n\n").append(monthLine(summary));
+        text.append(Texts.t(
+                "\n\nTap 🗑 to delete one, or send /del 3.",
+                "\n\nចុច 🗑 ដើម្បីលុប ឬផ្ញើ /del 3។"));
         return text.toString();
+    }
+
+    public String history(java.util.List<java.time.YearMonth> months) {
+        if (months.isEmpty()) {
+            return Texts.t(
+                    "🗂 OT history\n\nNo OT yet. Send /ot to add one.",
+                    "🗂 ប្រវត្តិ OT\n\nមិនទាន់មានម៉ោងបន្ថែមទេ។ ផ្ញើ /ot ដើម្បីបន្ថែម។");
+        }
+        return Texts.t(
+                "🗂 OT history\n\nTap a month, or send /ot-history 2026-10",
+                "🗂 ប្រវត្តិ OT\n\nចុចខែមួយ ឬផ្ញើ /ot-history 2026-10");
+    }
+
+    public String confirmDelete(OtRecordEntity record) {
+        return Texts.t("Delete OT #", "លុប OT #") + record.getRecordNumber() + "?\n"
+                + Texts.day(record.getWorkDate()) + "\n"
+                + clockLine(record);
+    }
+
+    public String deleted(int recordNumber) {
+        return Texts.t("Deleted OT #", "បានលុប OT #") + recordNumber + ".";
+    }
+
+    public String recordNotFound(int recordNumber) {
+        return Texts.t("OT #" + recordNumber + " was not found.", "រកមិនឃើញ OT #" + recordNumber + " ទេ។");
+    }
+
+    public String deleteUsage() {
+        return Texts.t(
+                "Send /del 3 to delete OT #3. Add a month if you want: /del 3 2026-10",
+                "ផ្ញើ /del 3 ដើម្បីលុប OT #3។ បន្ថែមខែបើចង់៖ /del 3 2026-10");
+    }
+
+    public String invalidMonth() {
+        return Texts.t(
+                "Send a month like <b>2026-10</b>, <b>10</b>, or <b>October</b>.",
+                "ផ្ញើខែដូច <b>2026-10</b>, <b>10</b>, ឬ <b>តុលា</b>។");
     }
 
     public String cancelled() {

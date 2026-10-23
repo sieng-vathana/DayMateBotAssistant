@@ -8,6 +8,7 @@ import com.daymate.bot.entity.ConversationStateEntity;
 import com.daymate.bot.entity.SalaryProfileEntity;
 import com.daymate.bot.ot.OtEntryParser;
 import com.daymate.bot.ot.OtFormatter;
+import com.daymate.bot.ot.MonthParser;
 import com.daymate.bot.ot.OtRecordService;
 import com.daymate.bot.service.ConversationService;
 import com.daymate.bot.telegram.TelegramApiClient;
@@ -79,7 +80,51 @@ public class OtHandler {
     }
 
     public void list(Long chatId, Long userId) {
-        telegram.sendMessage(chatId, formatter.list(ot.monthSummary(userId, ot.currentMonth())));
+        showMonth(chatId, userId, ot.currentMonth());
+    }
+
+    public void history(Long chatId, Long userId, String argument) {
+        if (argument == null || argument.isBlank()) {
+            showHistory(chatId, userId);
+            return;
+        }
+        Optional<YearMonth> month = MonthParser.parse(argument, ot.today());
+        if (month.isEmpty()) {
+            telegram.sendHtml(chatId, formatter.invalidMonth(), null);
+            return;
+        }
+        showMonth(chatId, userId, month.get());
+    }
+
+    public void deleteCommand(Long chatId, Long userId, String argument) {
+        if (argument == null || argument.isBlank()) {
+            telegram.sendMessage(chatId, formatter.deleteUsage());
+            return;
+        }
+        String[] parts = argument.trim().split("\\s+");
+        String numberText = parts[0].startsWith("#") ? parts[0].substring(1) : parts[0];
+        int number;
+        try {
+            number = Integer.parseInt(numberText);
+        } catch (NumberFormatException exception) {
+            telegram.sendMessage(chatId, formatter.deleteUsage());
+            return;
+        }
+        YearMonth month = null;
+        if (parts.length > 1) {
+            Optional<YearMonth> parsed = MonthParser.parse(parts[1], ot.today());
+            if (parsed.isEmpty()) {
+                telegram.sendHtml(chatId, formatter.invalidMonth(), null);
+                return;
+            }
+            month = parsed.get();
+        }
+        Optional<com.daymate.bot.entity.OtRecordEntity> record = ot.findRecord(userId, number);
+        if (record.isEmpty() || (month != null && !YearMonth.from(record.get().getWorkDate()).equals(month))) {
+            telegram.sendMessage(chatId, formatter.recordNotFound(number));
+            return;
+        }
+        askDelete(chatId, record.get());
     }
 
     public void upcoming(Long chatId, Long userId) {
@@ -122,6 +167,31 @@ public class OtHandler {
         if (data.startsWith("ot:day:")) {
             telegram.answerCallback(callbackId, "Day", false);
             showDay(chatId, userId, LocalDate.parse(data.substring("ot:day:".length())));
+            return true;
+        }
+        if (data.equals("ot:hist")) {
+            telegram.answerCallback(callbackId, "History", false);
+            showHistory(chatId, userId);
+            return true;
+        }
+        if (data.startsWith("ot:mon:")) {
+            telegram.answerCallback(callbackId, "Month", false);
+            showMonth(chatId, userId, YearMonth.parse(data.substring("ot:mon:".length())));
+            return true;
+        }
+        if (data.startsWith("ot:delok:")) {
+            telegram.answerCallback(callbackId, "Deleted", false);
+            deleteFromToken(chatId, userId, data.substring("ot:delok:".length()));
+            return true;
+        }
+        if (data.startsWith("ot:keep:")) {
+            telegram.answerCallback(callbackId, "Kept", false);
+            showMonth(chatId, userId, YearMonth.parse(data.substring("ot:keep:".length())));
+            return true;
+        }
+        if (data.startsWith("ot:del:")) {
+            telegram.answerCallback(callbackId, "Delete", false);
+            confirmFromToken(chatId, userId, data.substring("ot:del:".length()));
             return true;
         }
         if (data.startsWith("ot:go:")) {
@@ -377,6 +447,81 @@ public class OtHandler {
         } catch (IllegalArgumentException exception) {
             telegram.sendMessage(chatId, exception.getMessage(), cancelKeyboard());
         }
+    }
+
+    private void showMonth(Long chatId, Long userId, YearMonth month) {
+        OtRecordService.MonthSummary summary = ot.monthSummary(userId, month);
+        telegram.sendMessage(chatId, formatter.list(summary), listKeyboard(summary));
+    }
+
+    private void showHistory(Long chatId, Long userId) {
+        java.util.List<YearMonth> months = ot.historyMonths(userId);
+        telegram.sendMessage(chatId, formatter.history(months), historyKeyboard(months));
+    }
+
+    private void confirmFromToken(Long chatId, Long userId, String token) {
+        String[] parts = token.split(":");
+        if (parts.length != 2) {
+            return;
+        }
+        int number = Integer.parseInt(parts[1]);
+        Optional<com.daymate.bot.entity.OtRecordEntity> record = ot.findRecord(userId, number);
+        if (record.isEmpty()) {
+            telegram.sendMessage(chatId, formatter.recordNotFound(number));
+            return;
+        }
+        askDelete(chatId, record.get());
+    }
+
+    private void deleteFromToken(Long chatId, Long userId, String token) {
+        String[] parts = token.split(":");
+        if (parts.length != 2) {
+            return;
+        }
+        YearMonth month = YearMonth.parse(parts[0]);
+        int number = Integer.parseInt(parts[1]);
+        try {
+            ot.deleteRecord(userId, number, month);
+            telegram.sendMessage(chatId, formatter.deleted(number));
+            showMonth(chatId, userId, month);
+        } catch (IllegalArgumentException exception) {
+            telegram.sendMessage(chatId, formatter.recordNotFound(number));
+        }
+    }
+
+    private void askDelete(Long chatId, com.daymate.bot.entity.OtRecordEntity record) {
+        YearMonth month = YearMonth.from(record.getWorkDate());
+        String token = month + ":" + record.getRecordNumber();
+        telegram.sendMessage(chatId, formatter.confirmDelete(record), List.of(List.of(
+                button(Texts.t("Delete", "លុប"), "ot:delok:" + token),
+                button(Texts.t("Keep", "ទុក"), "ot:keep:" + month))));
+    }
+
+    private List<List<Map<String, String>>> listKeyboard(OtRecordService.MonthSummary summary) {
+        List<List<Map<String, String>>> rows = new ArrayList<>();
+        List<Map<String, String>> row = new ArrayList<>();
+        for (com.daymate.bot.entity.OtRecordEntity record : summary.records()) {
+            YearMonth month = YearMonth.from(record.getWorkDate());
+            row.add(button("🗑 #" + record.getRecordNumber(), "ot:del:" + month + ":" + record.getRecordNumber()));
+            if (row.size() == 3) {
+                rows.add(row);
+                row = new ArrayList<>();
+            }
+        }
+        if (!row.isEmpty()) {
+            rows.add(row);
+        }
+        rows.add(List.of(button(Texts.t("History", "ប្រវត្តិ"), "ot:hist")));
+        return rows;
+    }
+
+    private List<List<Map<String, String>>> historyKeyboard(java.util.List<YearMonth> months) {
+        List<List<Map<String, String>>> rows = new ArrayList<>();
+        for (YearMonth month : months) {
+            rows.add(List.of(button(Texts.month(month), "ot:mon:" + month)));
+        }
+        rows.add(List.of(button(Texts.t("This month", "ខែនេះ"), "ot:mon:" + ot.currentMonth())));
+        return rows;
     }
 
     private int workDays(Long userId) {

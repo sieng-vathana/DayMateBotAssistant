@@ -80,6 +80,9 @@ class OtCalculatorTest {
                     assertThat(typed.shift()).isNull();
                 });
         assertThat(OtEntryParser.parseTimeOnly("13:00-19:00 holiday").get().shift()).isEqualTo(OtShift.HOLIDAY);
+        assertThat(MonthParser.parse("2026-10", today)).contains(java.time.YearMonth.of(2026, 10));
+        assertThat(MonthParser.parse("10", today)).contains(java.time.YearMonth.of(2026, 10));
+        assertThat(MonthParser.parse("តុលា 2026", today)).contains(java.time.YearMonth.of(2026, 10));
     }
 
     @Test

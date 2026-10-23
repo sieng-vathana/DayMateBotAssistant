@@ -226,6 +226,8 @@ public class CommandRouter {
             case "/language", "/lang" -> telegram.sendMessage(chatId, formatter.languagePrompt(), languageKeyboard());
             case "/ot", "/ot-record" -> otHandler.startRecord(chatId, userId, argument);
             case "/otlist", "/ot-list" -> otHandler.list(chatId, userId);
+            case "/ot-history", "/othistory", "/ot_history" -> otHandler.history(chatId, userId, argument);
+            case "/del", "/delete" -> otHandler.deleteCommand(chatId, userId, argument);
             case "/salary" -> otHandler.startSalary(chatId, userId);
             case "/upcoming_salary", "/upcomingsalary", "/upcoming-salary" -> otHandler.upcoming(chatId, userId);
             default -> telegram.sendMessage(chatId, formatter.unknownCommand());
