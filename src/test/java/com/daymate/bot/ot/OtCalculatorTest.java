@@ -14,21 +14,22 @@ class OtCalculatorTest {
     private static final BigDecimal SALARY = new BigDecimal("480.00");
 
     @Test
-    void fiveDayWeekUsesTwentyTwoDaysAndTreatsSaturdayAsWeekend() {
+    void fiveDayWeekKeepsTwentySixDayRateAndTreatsSaturdayAsWeekend() {
         OtCalculator.Quote friday = OtCalculator.quote(
                 SALARY, LocalDate.of(2026, 10, 23), LocalTime.of(16, 30), LocalTime.of(17, 30), 5);
         OtCalculator.Quote saturday = OtCalculator.quote(
                 SALARY, LocalDate.of(2026, 10, 24), LocalTime.of(9, 0), LocalTime.of(17, 30), 5);
 
-        assertThat(OtCalculator.daysPerMonth(5)).isEqualTo(22);
-        assertThat(OtCalculator.hoursPerMonth(5)).isEqualByComparingTo("176");
+        assertThat(OtCalculator.daysPerMonth(5)).isEqualTo(26);
+        assertThat(OtCalculator.hoursPerMonth(5)).isEqualByComparingTo("208");
         assertThat(friday.shift()).isEqualTo(OtShift.EVENING);
-        assertThat(friday.hourlyRate()).isEqualByComparingTo("4.09");
-        assertThat(friday.amount()).isEqualByComparingTo("4.09");
+        assertThat(friday.paidHours()).isEqualByComparingTo("1.00");
+        assertThat(friday.hourlyRate()).isEqualByComparingTo("3.46");
+        assertThat(friday.amount()).isEqualByComparingTo("3.46");
         assertThat(saturday.shift()).isEqualTo(OtShift.WEEKEND);
         assertThat(saturday.paidHours()).isEqualByComparingTo("7.50");
-        assertThat(saturday.hourlyRate()).isEqualByComparingTo("5.45");
-        assertThat(saturday.amount()).isEqualByComparingTo("40.88");
+        assertThat(saturday.hourlyRate()).isEqualByComparingTo("4.62");
+        assertThat(saturday.amount()).isEqualByComparingTo("34.65");
     }
 
     @Test

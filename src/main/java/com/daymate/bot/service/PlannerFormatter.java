@@ -56,8 +56,8 @@ public class PlannerFormatter {
 
                 Overtime uses Phnom Penh time.
                 ACLEDA works 5 days a week, so Saturday and Sunday are Weekend at 200%.
-                The hourly rate is monthly salary ÷ (22 days × 8 hours).
-                A 6-day week uses 26 × 8 hours, and only Sunday is Weekend at 200%.
+                The hourly rate is monthly salary ÷ (26 days × 8 hours), then × 150% or × 200%.
+                A 6-day week uses the same rate, and only Sunday is Weekend at 200%.
                 A shift of 6 hours or more includes a 1 hour break.
                 ACLEDA paydays are day 12 and day 26.
 
