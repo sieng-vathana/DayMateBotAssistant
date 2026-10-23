@@ -3,6 +3,7 @@ package com.daymate.bot.router;
 import com.daymate.bot.domain.ConversationStep;
 import com.daymate.bot.domain.OtShift;
 import com.daymate.bot.domain.OtTimeRange;
+import com.daymate.bot.i18n.Texts;
 import com.daymate.bot.entity.ConversationStateEntity;
 import com.daymate.bot.entity.SalaryProfileEntity;
 import com.daymate.bot.ot.OtEntryParser;
@@ -193,7 +194,7 @@ public class OtHandler {
             telegram.sendMessage(chatId, formatter.workDaysPrompt(), workDaysKeyboard());
             return;
         }
-        telegram.sendMessage(chatId, "Choose Yes or No.", acledaKeyboard());
+        telegram.sendMessage(chatId, formatter.chooseYesNo(), acledaKeyboard());
     }
 
     private void acceptWorkDays(ConversationStateEntity state, Long chatId, String text) {
@@ -250,7 +251,7 @@ public class OtHandler {
             return;
         }
         if (state.getPayDay1() != null && state.getPayDay1().equals(day)) {
-            telegram.sendMessage(chatId, "The two paydays must be different days.");
+            telegram.sendMessage(chatId, formatter.differentPaydays());
             return;
         }
         state.setPayDay2(day);
@@ -382,13 +383,17 @@ public class OtHandler {
     }
 
     private static List<List<Map<String, String>>> acledaKeyboard() {
-        return List.of(List.of(button("Yes, ACLEDA", "ot:acleda:yes"), button("No", "ot:acleda:no")));
+        return List.of(List.of(
+                button(Texts.t("Yes, ACLEDA", "ចាស ACLEDA"), "ot:acleda:yes"),
+                button(Texts.t("No", "ទេ"), "ot:acleda:no")));
     }
 
     private List<List<Map<String, String>>> homeKeyboard(LocalDate today, int workDays) {
         List<List<Map<String, String>>> rows = new ArrayList<>();
-        rows.add(List.of(quick(today, "16:30", "17:30", workDays, "Today 16:30-17:30")));
-        rows.add(List.of(quick(today, "16:30", "18:30", workDays, "Today 16:30-18:30")));
+        rows.add(List.of(quick(today, "16:30", "17:30", workDays,
+                Texts.t("Today 16:30-17:30", "ថ្ងៃនេះ 16:30-17:30"))));
+        rows.add(List.of(quick(today, "16:30", "18:30", workDays,
+                Texts.t("Today 16:30-18:30", "ថ្ងៃនេះ 16:30-18:30"))));
         YearMonth month = YearMonth.from(today);
         List<Map<String, String>> row = new ArrayList<>();
         for (int day = 1; day <= month.lengthOfMonth(); day++) {
@@ -403,7 +408,7 @@ public class OtHandler {
         if (!row.isEmpty()) {
             rows.add(row);
         }
-        rows.add(List.of(button("❌ Cancel", "ot:cancel")));
+        rows.add(List.of(button(Texts.t("❌ Cancel", "❌ បោះបង់"), "ot:cancel")));
         return rows;
     }
 
@@ -414,7 +419,8 @@ public class OtHandler {
                 List.of(slot(date, "16:30", "18:30", auto)),
                 List.of(slot(date, "09:00", "17:30", auto)),
                 List.of(slot(date, "08:30", "17:30", OtShift.HOLIDAY)),
-                List.of(button("Another day", "ot:home"), button("❌ Cancel", "ot:cancel")));
+                List.of(button(Texts.t("Another day", "ថ្ងៃផ្សេង"), "ot:home"),
+                        button(Texts.t("❌ Cancel", "❌ បោះបង់"), "ot:cancel")));
     }
 
     private Map<String, String> quick(LocalDate date, String start, String end, int workDays, String label) {
@@ -422,7 +428,12 @@ public class OtHandler {
     }
 
     private Map<String, String> slot(LocalDate date, String start, String end, OtShift shift) {
-        return button(start + "-" + end + " · " + shift.label(), token(date, start, end, shift));
+        String name = switch (shift) {
+            case HOLIDAY -> Texts.t("Holiday", "ថ្ងៃឈប់");
+            case EVENING -> Texts.t("Evening", "ល្ងាច");
+            case WEEKEND -> Texts.t("Weekend", "ចុងសប្តាហ៍");
+        };
+        return button(start + "-" + end + " · " + name, token(date, start, end, shift));
     }
 
     private static String token(LocalDate date, String start, String end, OtShift shift) {
@@ -436,11 +447,15 @@ public class OtHandler {
     }
 
     private static List<List<Map<String, String>>> workDaysKeyboard() {
-        return List.of(List.of(button("5 days", "ot:days:5"), button("6 days", "ot:days:6")));
+        return List.of(List.of(
+                button(Texts.t("5 days", "5 ថ្ងៃ"), "ot:days:5"),
+                button(Texts.t("6 days", "6 ថ្ងៃ"), "ot:days:6")));
     }
 
     private static List<List<Map<String, String>>> timesKeyboard() {
-        return List.of(List.of(button("1 time", "ot:times:1"), button("2 times", "ot:times:2")));
+        return List.of(List.of(
+                button(Texts.t("1 time", "1 ដង"), "ot:times:1"),
+                button(Texts.t("2 times", "2 ដង"), "ot:times:2")));
     }
 
     private static List<List<Map<String, String>>> cancelKeyboard() {
@@ -448,7 +463,7 @@ public class OtHandler {
     }
 
     private static List<List<Map<String, String>>> changeKeyboard() {
-        return List.of(List.of(button("Change salary", "ot:change")));
+        return List.of(List.of(button(Texts.t("Change salary", "ប្ដូរប្រាក់ខែ"), "ot:change")));
     }
 
     private static Map<String, String> button(String text, String data) {

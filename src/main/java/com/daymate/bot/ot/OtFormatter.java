@@ -1,78 +1,105 @@
 package com.daymate.bot.ot;
 
+import com.daymate.bot.i18n.Texts;
 import com.daymate.bot.entity.OtRecordEntity;
 import com.daymate.bot.entity.SalaryProfileEntity;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
-import java.util.Locale;
 
 @Component
 public class OtFormatter {
-    private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("EEE, d MMM yyyy", Locale.ENGLISH);
-    private static final DateTimeFormatter MONTH = DateTimeFormatter.ofPattern("MMM yyyy", Locale.ENGLISH);
     private static final DateTimeFormatter CLOCK = DateTimeFormatter.ofPattern("HH:mm");
 
     public String oneLinePrompt(java.time.LocalDate today) {
-        String month = today.format(java.time.format.DateTimeFormatter.ofPattern("MMMM yyyy", java.util.Locale.ENGLISH));
-        return "Record OT for " + month + ". Day comes first.\n\n"
-                + "One line saves it:\n"
-                + "<b>" + today.getDayOfMonth() + " 16:30-17:30</b>\n"
-                + "<b>" + today.getDayOfMonth() + " 16:30-17:30 holiday</b>\n\n"
-                + "Weekday = Evening 150%. Sat/Sun = Weekend 200%.\n"
-                + "Add holiday only for Holiday 100%.\n\n"
-                + "Or tap a day, then one time. That second tap saves it.";
+        String month = Texts.monthLong(today);
+        int day = today.getDayOfMonth();
+        return Texts.t(
+                "Record OT for " + month + ". Day comes first.\n\n"
+                        + "One line saves it:\n<b>" + day + " 16:30-17:30</b>\n<b>" + day + " 16:30-17:30 holiday</b>\n\n"
+                        + "Weekday = Evening 150%. Sat/Sun = Weekend 200%.\n"
+                        + "Add holiday only for Holiday 100%.\n\n"
+                        + "Or tap a day, then one time. That second tap saves it.",
+                "កត់ម៉ោងបន្ថែមសម្រាប់ " + month + "។ ថ្ងៃមុនគេ។\n\n"
+                        + "សរសេរមួយជួររួចផ្ញើ៖\n<b>" + day + " 16:30-17:30</b>\n<b>" + day + " 16:30-17:30 holiday</b>\n\n"
+                        + "ថ្ងៃធ្វើការ = ល្ងាច 150%។ សៅរ៍/អាទិត្យ = ចុងសប្តាហ៍ 200%។\n"
+                        + "បន្ថែម holiday សម្រាប់ថ្ងៃឈប់សម្រាក 100%។\n\n"
+                        + "ឬចុចថ្ងៃ បន្ទាប់មកចុចម៉ោងមួយ។ ការចុចនោះរក្សាទុកភ្លាម។");
     }
 
     public String invalidEntry() {
-        return "I couldn't read that. Day first, then the time.\n"
-                + "Example: <b>24 16:30-17:30</b> or <b>24 16:30-17:30 holiday</b>.";
+        return Texts.t(
+                "I couldn't read that. Day first, then the time.\nExample: <b>24 16:30-17:30</b> or <b>24 16:30-17:30 holiday</b>.",
+                "ខ្ញុំអានមិនបានទេ។ ថ្ងៃមុន បន្ទាប់មកម៉ោង។\nឧទាហរណ៍៖ <b>24 16:30-17:30</b> ឬ <b>24 16:30-17:30 holiday</b>។");
     }
 
     public String dayChosen(java.time.LocalDate date) {
-        return "📅 " + DAY.format(date) + "\n\nOne tap saves this day.";
+        return Texts.t(
+                "📅 " + Texts.day(date) + "\n\nOne tap saves this day.",
+                "📅 " + Texts.day(date) + "\n\nចុចមួយដង រក្សាទុកថ្ងៃនេះ។");
     }
 
     public String acledaPrompt() {
-        return """
+        return Texts.t("""
                 Before recording OT, set your base salary.
 
                 Are you an ACLEDA employee?
                 ACLEDA works 5 days a week (Monday–Friday).
                 Saturday and Sunday are weekend OT at 200%.
-                Pay is 2 times a month, on day 12 and day 26.""";
+                Pay is 2 times a month, on day 12 and day 26.""", """
+                មុនកត់ម៉ោងបន្ថែម សូមកំណត់ប្រាក់ខែគោលសិន។
+
+                តើអ្នកជាបុគ្គលិក ACLEDA ទេ?
+                ACLEDA ធ្វើការ 5 ថ្ងៃក្នុងមួយសប្តាហ៍ (ចន្ទ–សុក្រ)។
+                សៅរ៍ និងអាទិត្យ ជាម៉ោងបន្ថែមចុងសប្តាហ៍ 200%។
+                ប្រាក់ខែបើក 2 ដងក្នុងមួយខែ នៅថ្ងៃទី 12 និង 26។""");
     }
 
     public String workDaysPrompt() {
-        return """
+        return Texts.t("""
                 How many days do you work each week?
 
                 5 days — Monday to Friday. Saturday and Sunday are weekend OT (200%). Rate uses 5 × 52 ÷ 12 × 8 hours.
-                6 days — Monday to Saturday. Only Sunday is weekend OT (200%). Rate uses 6 × 52 ÷ 12 × 8 hours.""";
+                6 days — Monday to Saturday. Only Sunday is weekend OT (200%). Rate uses 6 × 52 ÷ 12 × 8 hours.""", """
+                អ្នកធ្វើការប៉ុន្មានថ្ងៃក្នុងមួយសប្តាហ៍?
+
+                5 ថ្ងៃ — ចន្ទដល់សុក្រ។ សៅរ៍ និងអាទិត្យ ជាចុងសប្តាហ៍ (200%)។ អត្រាប្រើ 5 × 52 ÷ 12 × 8 ម៉ោង។
+                6 ថ្ងៃ — ចន្ទដល់សៅរ៍។ មានតែអាទិត្យទេដែលជាចុងសប្តាហ៍ (200%)។ អត្រាប្រើ 6 × 52 ÷ 12 × 8 ម៉ោង។""");
     }
 
     public String payTimesPrompt() {
-        return "How many times is salary paid each month?";
+        return Texts.t(
+                "How many times is salary paid each month?",
+                "ប្រាក់ខែបើកប៉ុន្មានដងក្នុងមួយខែ?");
     }
 
     public String payDayPrompt(int which, int total) {
         if (total == 1) {
-            return """
+            return Texts.t("""
                     Which day of the month does salary arrive?
-                    Send the day only, from 1 to 31. Example: 25""";
+                    Send the day only, from 1 to 31. Example: 25""", """
+                    ប្រាក់ខែមកដល់ថ្ងៃទីប៉ុន្មាន?
+                    ផ្ញើតែលេខថ្ងៃ ពី 1 ដល់ 31។ ឧទាហរណ៍៖ 25""");
         }
-        String label = which == 1 ? "First" : "Second";
-        return label + " payday of the month?\nSend the day only, from 1 to 31.";
+        String label = which == 1
+                ? Texts.t("First", "ទីមួយ")
+                : Texts.t("Second", "ទីពីរ");
+        return Texts.t(
+                label + " payday of the month?\nSend the day only, from 1 to 31.",
+                "ថ្ងៃបើកប្រាក់ខែ" + label + "?\nផ្ញើតែលេខថ្ងៃ ពី 1 ដល់ 31។");
     }
 
     public String salaryAmountPrompt(boolean acleda, int payTimes, int payDay1, Integer payDay2) {
         String schedule = acleda
-                ? "5-day week. Paid 2 times a month, on day 12 and day 26."
+                ? Texts.t(
+                "5-day week. Paid 2 times a month, on day 12 and day 26.",
+                "សប្តាហ៍ 5 ថ្ងៃ។ បើក 2 ដងក្នុងមួយខែ នៅថ្ងៃទី 12 និង 26។")
                 : scheduleText(payTimes, payDay1, payDay2);
-        return schedule + "\n\nWhat is your base salary for the month? (USD)\nExample: 400";
+        return schedule + "\n\n" + Texts.t(
+                "What is your base salary for the month? (USD)\nExample: 400",
+                "ប្រាក់ខែគោលក្នុងមួយខែប៉ុន្មាន? (ដុល្លារ)\nឧទាហរណ៍៖ 400");
     }
 
     public String salarySaved(SalaryProfileEntity profile) {
@@ -83,16 +110,18 @@ public class OtFormatter {
         BigDecimal holiday = shownHourly;
         BigDecimal evening = hourly.multiply(new BigDecimal("1.5")).setScale(2, RoundingMode.HALF_UP);
         BigDecimal weekend = hourly.multiply(new BigDecimal("2")).setScale(2, RoundingMode.HALF_UP);
-        String weekLine = week + "-day week · " + week + " × 52 ÷ 12 × 8h = "
-                + monthHours.setScale(2, RoundingMode.HALF_UP).toPlainString() + "h/month";
-        return "✅ Salary saved\n"
+        String hoursLabel = monthHours.setScale(2, RoundingMode.HALF_UP).toPlainString();
+        String weekLine = Texts.t(
+                week + "-day week · " + week + " × 52 ÷ 12 × 8h = " + hoursLabel + "h/month",
+                "សប្តាហ៍ " + week + " ថ្ងៃ · " + week + " × 52 ÷ 12 × 8h = " + hoursLabel + "h/ខែ");
+        return Texts.t("✅ Salary saved\n", "✅ បានរក្សាទុកប្រាក់ខែ\n")
                 + weekLine + "\n"
                 + scheduleText(profile.getPayTimes(), profile.getPayDay1(), profile.getPayDay2()) + "\n\n"
-                + "Hourly pay | Base salary\n"
+                + Texts.t("Hourly pay | Base salary", "ប្រាក់ម៉ោង | ប្រាក់ខែគោល") + "\n"
                 + money(shownHourly) + " | " + money(profile.getMonthlySalary()) + "\n\n"
-                + "Holiday 100% " + money(holiday) + "/h\n"
-                + "Evening 150% " + money(evening) + "/h\n"
-                + "Weekend 200% " + money(weekend) + "/h";
+                + Texts.t("Holiday", "ថ្ងៃឈប់សម្រាក") + " 100% " + money(holiday) + "/h\n"
+                + Texts.t("Evening", "ល្ងាច") + " 150% " + money(evening) + "/h\n"
+                + Texts.t("Weekend", "ចុងសប្តាហ៍") + " 200% " + money(weekend) + "/h";
     }
 
     public String typePrompt() {
@@ -103,47 +132,63 @@ public class OtFormatter {
     }
 
     public String upcoming(OtRecordService.UpcomingSalary upcoming) {
-        StringBuilder text = new StringBuilder("📅 Upcoming salary\n\n");
-        text.append("Hourly pay | Base salary\n");
+        StringBuilder text = new StringBuilder(Texts.t("📅 Upcoming salary\n\n", "📅 ប្រាក់ខែខាងមុខ\n\n"));
+        text.append(Texts.t("Hourly pay | Base salary", "ប្រាក់ម៉ោង | ប្រាក់ខែគោល")).append('\n');
         text.append(money(upcoming.hourly())).append(" | ").append(money(upcoming.profile().getMonthlySalary()));
         if (upcoming.next().isEmpty()) {
-            text.append("\n\nNo payday found.");
+            text.append(Texts.t("\n\nNo payday found.", "\n\nរកមិនឃើញថ្ងៃបើកប្រាក់ខែទេ។"));
             return text.toString();
         }
-        text.append("\n\nNext: ").append(DAY.format(upcoming.next().get(0).date()));
-        text.append("\nThis payday: ").append(money(upcoming.next().get(0).amount()));
+        text.append(Texts.t("\n\nNext: ", "\n\nបន្ទាប់៖ ")).append(Texts.day(upcoming.next().get(0).date()));
+        text.append(Texts.t("\nThis payday: ", "\nប្រាក់ខែលើកនេះ៖ ")).append(money(upcoming.next().get(0).amount()));
         if (upcoming.next().size() > 1) {
-            text.append("\n\nAfter that: ").append(DAY.format(upcoming.next().get(1).date()));
-            text.append("\nThis payday: ").append(money(upcoming.next().get(1).amount()));
+            text.append(Texts.t("\n\nAfter that: ", "\n\nបន្ទាប់ទៀត៖ ")).append(Texts.day(upcoming.next().get(1).date()));
+            text.append(Texts.t("\nThis payday: ", "\nប្រាក់ខែលើកនេះ៖ ")).append(money(upcoming.next().get(1).amount()));
         }
         return text.toString();
     }
 
     public String salarySummary(SalaryProfileEntity profile) {
-        return salarySaved(profile) + "\n\nSend /ot to record overtime, or tap Change to update this.";
+        return salarySaved(profile) + "\n\n" + Texts.t(
+                "Send /ot to record overtime, or tap Change to update this.",
+                "ផ្ញើ /ot ដើម្បីកត់ម៉ោងបន្ថែម ឬចុច ប្ដូរប្រាក់ខែ ដើម្បីកែ។");
     }
 
     public String needSalaryFirst() {
-        return "Set your base salary before recording OT.";
+        return Texts.t(
+                "Set your base salary before recording OT.",
+                "សូមកំណត់ប្រាក់ខែគោលសិន មុនកត់ម៉ោងបន្ថែម។");
+    }
+
+    public String chooseYesNo() {
+        return Texts.t("Choose Yes or No.", "សូមជ្រើស ចាស ឬ ទេ។");
+    }
+
+    public String differentPaydays() {
+        return Texts.t(
+                "The two paydays must be different days.",
+                "ថ្ងៃបើកប្រាក់ខែទាំងពីរត្រូវខុសគ្នា។");
     }
 
     public String saved(OtRecordService.SavedOt saved) {
         OtRecordEntity record = saved.record();
-        return "✅ Saved OT #" + record.getRecordNumber() + "\n"
+        return Texts.t("✅ Saved OT #", "✅ បានរក្សាទុក OT #") + record.getRecordNumber() + "\n"
                 + line(record) + "\n"
                 + clockLine(record) + "\n\n"
                 + monthLine(saved.month());
     }
 
     public String list(OtRecordService.MonthSummary summary) {
-        String title = "📋 OT records — " + MONTH.format(summary.month());
+        String title = Texts.t("📋 OT records — ", "📋 កំណត់ត្រា OT — ") + Texts.month(summary.month());
         if (summary.records().isEmpty()) {
-            return title + "\n\nNo OT yet this month. Send /ot to add one.";
+            return title + Texts.t(
+                    "\n\nNo OT yet this month. Send /ot to add one.",
+                    "\n\nមិនទាន់មានម៉ោងបន្ថែមខែនេះទេ។ ផ្ញើ /ot ដើម្បីបន្ថែម។");
         }
         StringBuilder text = new StringBuilder(title);
         for (OtRecordEntity record : summary.records()) {
             text.append("\n\n#").append(record.getRecordNumber())
-                    .append(" · ").append(DAY.format(record.getWorkDate()))
+                    .append(" · ").append(Texts.day(record.getWorkDate()))
                     .append(" · ").append(shiftLabel(record))
                     .append('\n').append(clockLine(record));
         }
@@ -152,44 +197,61 @@ public class OtFormatter {
     }
 
     public String cancelled() {
-        return "Cancelled. Send /ot when you want to record overtime.";
+        return Texts.t(
+                "Cancelled. Send /ot when you want to record overtime.",
+                "បានបោះបង់។ ផ្ញើ /ot ពេលចង់កត់ម៉ោងបន្ថែម។");
     }
 
     public String invalidDay() {
-        return "Send a day of the month from 1 to 31. Example: 12";
+        return Texts.t(
+                "Send a day of the month from 1 to 31. Example: 12",
+                "ផ្ញើលេខថ្ងៃក្នុងខែ ពី 1 ដល់ 31។ ឧទាហរណ៍៖ 12");
     }
 
     public String invalidSalary() {
-        return "Send the monthly base salary in USD. Example: 480";
+        return Texts.t(
+                "Send the monthly base salary in USD. Example: 400",
+                "ផ្ញើប្រាក់ខែគោលជាដុល្លារ។ ឧទាហរណ៍៖ 400");
     }
 
     private String line(OtRecordEntity record) {
-        return shiftLabel(record) + " · " + DAY.format(record.getWorkDate());
+        return shiftLabel(record) + " · " + Texts.day(record.getWorkDate());
     }
 
     private String clockLine(OtRecordEntity record) {
         String hours = record.getBreakHours().signum() > 0
-                ? hours(record.getPaidHours()) + " (incl. " + hours(record.getBreakHours()) + " break)"
-                : hours(record.getPaidHours()) + " paid";
+                ? hours(record.getPaidHours()) + Texts.t(
+                " (incl. " + hours(record.getBreakHours()) + " break)",
+                " (រួមសម្រាក " + hours(record.getBreakHours()) + ")")
+                : hours(record.getPaidHours()) + Texts.t(" paid", " បានបង់");
         return CLOCK.format(record.getStartTime()) + "-" + CLOCK.format(record.getEndTime())
                 + " → " + hours
                 + " × " + money(record.getHourlyRate()) + "/h = " + money(record.getAmount());
     }
 
     private String monthLine(OtRecordService.MonthSummary summary) {
-        return "📈 " + MONTH.format(summary.month()) + " so far: "
+        return "📈 " + Texts.month(summary.month()) + Texts.t(" so far: ", " មកទល់ពេលនេះ៖ ")
                 + hours(summary.paidHours()) + " · " + money(summary.amount());
     }
 
     private String shiftLabel(OtRecordEntity record) {
-        return record.getShift().label() + " (" + record.getShift().percent() + "%)";
+        String name = switch (record.getShift()) {
+            case HOLIDAY -> Texts.t("Holiday", "ថ្ងៃឈប់សម្រាក");
+            case EVENING -> Texts.t("Evening", "ល្ងាច");
+            case WEEKEND -> Texts.t("Weekend", "ចុងសប្តាហ៍");
+        };
+        return name + " (" + record.getShift().percent() + "%)";
     }
 
     private String scheduleText(int payTimes, int payDay1, Integer payDay2) {
         if (payTimes == 2 && payDay2 != null) {
-            return "Paid 2 times a month, on day " + payDay1 + " and day " + payDay2 + ".";
+            return Texts.t(
+                    "Paid 2 times a month, on day " + payDay1 + " and day " + payDay2 + ".",
+                    "បើក 2 ដងក្នុងមួយខែ នៅថ្ងៃទី " + payDay1 + " និងថ្ងៃទី " + payDay2 + "។");
         }
-        return "Paid 1 time a month, on day " + payDay1 + ".";
+        return Texts.t(
+                "Paid 1 time a month, on day " + payDay1 + ".",
+                "បើក 1 ដងក្នុងមួយខែ នៅថ្ងៃទី " + payDay1 + "។");
     }
 
     public static String money(BigDecimal value) {

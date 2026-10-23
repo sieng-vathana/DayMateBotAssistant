@@ -1,5 +1,7 @@
 package com.daymate.bot.service;
 
+import com.daymate.bot.domain.Language;
+import com.daymate.bot.i18n.LanguageContext;
 import com.daymate.bot.domain.Recurrence;
 import com.daymate.bot.domain.TaskCategory;
 import com.daymate.bot.domain.TaskPriority;
@@ -23,7 +25,19 @@ class PlannerFormatterTest {
         assertThat(text).contains("Welcome to DayMate");
         assertThat(text).contains("/ot — Record overtime");
         assertThat(text).contains("/upcoming_salary — Next payday");
+        assertThat(text).contains("/language — Switch language");
         assertThat(text).contains("Let's make today productive!");
+    }
+
+    @Test
+    void khmerWelcomeUsesKhmerCopy() {
+        LanguageContext.set(Language.KM);
+        try {
+            assertThat(formatter.welcome()).contains("សូមស្វាគមន៍មកកាន់ DayMate");
+            assertThat(formatter.welcome()).contains("/language — ប្ដូរភាសា");
+        } finally {
+            LanguageContext.set(Language.EN);
+        }
     }
 
     @Test

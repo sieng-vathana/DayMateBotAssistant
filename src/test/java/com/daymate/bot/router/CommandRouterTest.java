@@ -1,6 +1,8 @@
 package com.daymate.bot.router;
 
 import com.daymate.bot.config.BotProperties;
+import com.daymate.bot.domain.Language;
+import com.daymate.bot.service.LanguageService;
 import com.daymate.bot.domain.Recurrence;
 import com.daymate.bot.domain.TaskCategory;
 import com.daymate.bot.domain.TaskPriority;
@@ -27,6 +29,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -43,6 +46,8 @@ class CommandRouterTest {
     private ConversationHandler conversationHandler;
     @Mock
     private OtHandler otHandler;
+    @Mock
+    private LanguageService languages;
 
     private CommandRouter router;
 
@@ -50,7 +55,8 @@ class CommandRouterTest {
     void setUp() {
         BotProperties properties = new BotProperties();
         properties.setAllowedUserIds("");
-        router = new CommandRouter(telegram, tasks, conversations, conversationHandler, otHandler,
+        lenient().when(languages.get(any())).thenReturn(Language.EN);
+        router = new CommandRouter(telegram, tasks, conversations, conversationHandler, otHandler, languages,
                 new PlannerFormatter(), properties);
     }
 

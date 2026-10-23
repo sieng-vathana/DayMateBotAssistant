@@ -1,5 +1,6 @@
 package com.daymate.bot.service;
 
+import com.daymate.bot.i18n.Texts;
 import com.daymate.bot.domain.Recurrence;
 import com.daymate.bot.domain.TaskPriority;
 import com.daymate.bot.domain.TaskStatus;
@@ -21,7 +22,7 @@ public class PlannerFormatter {
     private static final DateTimeFormatter COMPLETED_AT = DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH);
 
     public String welcome() {
-        return """
+        return Texts.t("""
                 👋 Welcome to DayMate
 
                 I record overtime and show your next payday.
@@ -30,19 +31,33 @@ public class PlannerFormatter {
                 /otlist — Overtime this month
                 /salary — Hourly pay and base salary
                 /upcoming_salary — Next payday
+                /language — Switch language
                 /help — Show this help message
 
-                Let's make today productive! 💪""";
+                Let's make today productive! 💪""", """
+                👋 សូមស្វាគមន៍មកកាន់ DayMate
+
+                ខ្ញុំកត់ត្រាម៉ោងបន្ថែម និងបង្ហាញថ្ងៃបើកប្រាក់ខែបន្ទាប់។
+
+                /ot — កត់ម៉ោងបន្ថែម
+                /otlist — ម៉ោងបន្ថែមខែនេះ
+                /salary — ប្រាក់ម៉ោង និងប្រាក់ខែគោល
+                /upcoming_salary — ថ្ងៃបើកប្រាក់ខែបន្ទាប់
+                /language — ប្ដូរភាសា
+                /help — ជំនួយ
+
+                សូមធ្វើឱ្យថ្ងៃនេះមានផលិតភាព! 💪""");
     }
 
     public String help() {
-        return """
+        return Texts.t("""
                 ❓ DayMate Help
 
                 /ot or /ot-record — Record overtime (set salary first)
                 /otlist or /ot-list — Overtime records for this month
                 /salary — Hourly pay and base salary
                 /upcoming_salary — Next payday
+                /language — English or Khmer
                 /help — This message
 
                 /ot saves in one line. Day first:
@@ -56,7 +71,36 @@ public class PlannerFormatter {
                 Overtime uses Phnom Penh time.
                 A 5-day week treats Saturday and Sunday as weekend.
                 A shift of 6 hours or more includes a 1 hour break.
-                Paydays for the suggested schedule are day 12 and day 26.""";
+                Paydays for the suggested schedule are day 12 and day 26.""", """
+                ❓ ជំនួយ DayMate
+
+                /ot ឬ /ot-record — កត់ម៉ោងបន្ថែម (កំណត់ប្រាក់ខែសិន)
+                /otlist ឬ /ot-list — កំណត់ត្រាខែនេះ
+                /salary — ប្រាក់ម៉ោង និងប្រាក់ខែគោល
+                /upcoming_salary — ថ្ងៃបើកប្រាក់ខែបន្ទាប់
+                /language — អង់គ្លេស ឬ ខ្មែរ
+                /help — សារនេះ
+
+                /ot រក្សាទុកក្នុងមួយជួរ។ ថ្ងៃមុនគេ៖
+                24 16:30-17:30
+                24 16:30-17:30 holiday
+
+                ថ្ងៃធ្វើការ = ល្ងាច 150%។ សៅរ៍/អាទិត្យ = ចុងសប្តាហ៍ 200%។
+                បន្ថែម holiday សម្រាប់ថ្ងៃឈប់សម្រាក 100%។
+                ឬចុចថ្ងៃ បន្ទាប់មកចុចម៉ោងមួយ។
+
+                ម៉ោងតាមម៉ោងភ្នំពេញ។
+                សប្តាហ៍ 5 ថ្ងៃ ចាត់សៅរ៍ និងអាទិត្យជាចុងសប្តាហ៍។
+                ការងារ 6 ម៉ោងឡើងទៅ រួមម៉ោងសម្រាក 1 ម៉ោង។
+                ថ្ងៃបើកប្រាក់ខែដែលស្នើគឺថ្ងៃទី 12 និង 26។""");
+    }
+
+    public String languagePrompt() {
+        return "🌐 Language / ភាសា\n\nChoose one / ជ្រើសមួយ៖";
+    }
+
+    public String languageSaved() {
+        return Texts.t("Language set to English.", "បានប្ដូរទៅភាសាខ្មែរ។");
     }
 
     public String today(TaskSaveService.Agenda agenda) {
@@ -182,17 +226,21 @@ public class PlannerFormatter {
     }
 
     public String unknownCommand() {
-        return "I don't know that command. Send /help to see what I can do.";
+        return Texts.t(
+                "I don't know that command. Send /help to see what I can do.",
+                "ខ្ញុំមិនស្គាល់ពាក្យបញ្ជានេះទេ។ ផ្ញើ /help ដើម្បីមើលអ្វីដែលខ្ញុំធ្វើបាន។");
     }
 
     public String notAllowed(Long userId) {
-        return "This bot is not configured for your account yet.\n"
-                + "Your user ID: " + userId + "\n"
-                + "Set TELEGRAM_ALLOWED_USER_IDS to this ID and restart DayMate.";
+        return Texts.t(
+                "This bot is not configured for your account yet.\nYour user ID: " + userId,
+                "បូតនេះមិនទាន់អនុញ្ញាតគណនីអ្នកទេ។\nលេខសម្គាល់របស់អ្នក៖ " + userId);
     }
 
     public String userId(Long userId) {
-        return "Your Telegram user ID is: " + userId;
+        return Texts.t(
+                "Your Telegram user ID is: " + userId,
+                "លេខសម្គាល់ Telegram របស់អ្នកគឺ៖ " + userId);
     }
 
     public String invalidDue() {

@@ -1,10 +1,13 @@
 package com.daymate.bot.router;
 
 import com.daymate.bot.config.BotProperties;
+import com.daymate.bot.domain.Language;
 import com.daymate.bot.dto.request.TelegramUpdateRequest;
+import com.daymate.bot.i18n.LanguageContext;
 import com.daymate.bot.entity.TaskEntity;
 import com.daymate.bot.save.TaskSaveService;
 import com.daymate.bot.service.ConversationService;
+import com.daymate.bot.service.LanguageService;
 import com.daymate.bot.service.PlannerFormatter;
 import com.daymate.bot.telegram.InlineKeyboards;
 import com.daymate.bot.telegram.TelegramApiClient;
@@ -13,6 +16,7 @@ import org.springframework.stereotype.Service;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -23,17 +27,19 @@ public class CommandRouter {
     private final ConversationService conversations;
     private final ConversationHandler conversationHandler;
     private final OtHandler otHandler;
+    private final LanguageService languages;
     private final PlannerFormatter formatter;
     private final Set<Long> allowedUserIds;
 
     public CommandRouter(TelegramApiClient telegram, TaskSaveService tasks, ConversationService conversations,
-                         ConversationHandler conversationHandler, OtHandler otHandler, PlannerFormatter formatter,
-                         BotProperties properties) {
+                         ConversationHandler conversationHandler, OtHandler otHandler, LanguageService languages,
+                         PlannerFormatter formatter, BotProperties properties) {
         this.telegram = telegram;
         this.tasks = tasks;
         this.conversations = conversations;
         this.conversationHandler = conversationHandler;
         this.otHandler = otHandler;
+        this.languages = languages;
         this.formatter = formatter;
         this.allowedUserIds = Arrays.stream(properties.getAllowedUserIds().split(","))
                 .map(String::trim)
@@ -66,6 +72,7 @@ public class CommandRouter {
         }
         Long chatId = message.chat().id();
         Long userId = message.from().id();
+        LanguageContext.set(languages.get(userId));
         String text = message.text().trim();
         if (text.equalsIgnoreCase("/id") || text.toLowerCase(Locale.ROOT).startsWith("/id@")) {
             telegram.sendMessage(chatId, formatter.userId(userId));
@@ -99,6 +106,7 @@ public class CommandRouter {
         if (callback.id() == null) {
             return;
         }
+        LanguageContext.set(languages.get(userId));
         if (userId == null || !isAllowed(userId)) {
             telegram.answerCallback(callback.id(), "You are not authorized to use this bot.", true);
             return;
@@ -109,6 +117,14 @@ public class CommandRouter {
         }
         String data = callback.data();
         try {
+            if (data.startsWith("lang:")) {
+                Language chosen = Language.from(data.substring("lang:".length()));
+                languages.set(userId, chosen);
+                LanguageContext.set(chosen);
+                telegram.answerCallback(callback.id(), "OK", false);
+                telegram.sendMessage(chatId, formatter.languageSaved());
+                return;
+            }
             if (data.startsWith("ot:")) {
                 if (!otHandler.handleCallback(callback.id(), chatId, userId, data)) {
                     telegram.answerCallback(callback.id(), "This button is no longer available.", true);
@@ -207,6 +223,7 @@ public class CommandRouter {
         switch (command) {
             case "/start", "/menu" -> telegram.sendMessage(chatId, formatter.welcome());
             case "/help" -> telegram.sendMessage(chatId, formatter.help());
+            case "/language", "/lang" -> telegram.sendMessage(chatId, formatter.languagePrompt(), languageKeyboard());
             case "/ot", "/ot-record" -> otHandler.startRecord(chatId, userId, argument);
             case "/otlist", "/ot-list" -> otHandler.list(chatId, userId);
             case "/salary" -> otHandler.startSalary(chatId, userId);
@@ -249,6 +266,12 @@ public class CommandRouter {
         } else {
             telegram.sendMessage(chatId, text, keyboard);
         }
+    }
+
+    private static List<List<Map<String, String>>> languageKeyboard() {
+        return List.of(List.of(
+                Map.of("text", "English", "callback_data", "lang:en"),
+                Map.of("text", "ខ្មែរ", "callback_data", "lang:km")));
     }
 
     private boolean isAllowed(Long userId) {

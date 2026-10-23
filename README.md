@@ -11,6 +11,7 @@ DayMate is a Telegram daily planner. Telegram is the user interface. Spring Boot
 | `/otlist`, `/ot-list` | Overtime records for this month |
 | `/salary` | Hourly pay and base salary |
 | `/upcoming_salary` | Next payday |
+| `/language` | Switch between English and Khmer |
 | `/help` | Help |
 | `/id` | Print your numeric Telegram user ID |
 
@@ -57,6 +58,7 @@ ot - Record overtime
 otlist - Overtime records this month
 salary - Hourly pay and base salary
 upcoming_salary - Next payday
+language - English or Khmer
 help - Show help
 id - Show your Telegram user ID
 ```
