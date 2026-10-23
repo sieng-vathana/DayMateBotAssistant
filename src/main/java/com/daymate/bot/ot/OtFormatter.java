@@ -41,9 +41,8 @@ public class OtFormatter {
         return """
                 How many days do you work each week?
 
-                5 days — Monday to Friday. Saturday and Sunday are weekend OT (200%).
-                6 days — Monday to Saturday. Only Sunday is weekend OT (200%).
-                The hourly rate always uses 26 days × 8 hours.""";
+                5 days — Monday to Friday. Saturday and Sunday are weekend OT (200%). Rate uses 5 × 52 ÷ 12 × 8 hours.
+                6 days — Monday to Saturday. Only Sunday is weekend OT (200%). Rate uses 6 × 52 ÷ 12 × 8 hours.""";
     }
 
     public String payTimesPrompt() {
@@ -64,7 +63,7 @@ public class OtFormatter {
         String schedule = acleda
                 ? "ACLEDA · 5-day week · pay days 12 and 26 (2 times a month)."
                 : scheduleText(payTimes, payDay1, payDay2);
-        return schedule + "\n\nWhat is your base salary for the month? (USD)\nExample: 480";
+        return schedule + "\n\nWhat is your base salary for the month? (USD)\nExample: 400";
     }
 
     public String salarySaved(SalaryProfileEntity profile) {
@@ -73,8 +72,8 @@ public class OtFormatter {
         BigDecimal hourly = profile.getMonthlySalary().divide(monthHours, 10, RoundingMode.HALF_UP);
         BigDecimal evening = hourly.multiply(new BigDecimal("1.5")).setScale(2, RoundingMode.HALF_UP);
         BigDecimal weekend = hourly.multiply(new BigDecimal("2")).setScale(2, RoundingMode.HALF_UP);
-        String weekLine = week + "-day week · rate uses 26 days × 8h = "
-                + monthHours.toPlainString() + "h/month";
+        String weekLine = week + "-day week · " + week + " × 52 ÷ 12 × 8h = "
+                + monthHours.setScale(2, RoundingMode.HALF_UP).toPlainString() + "h/month";
         return "✅ Salary saved\n"
                 + (profile.isAcledaEmployee() ? "ACLEDA employee\n" : "")
                 + weekLine + "\n"

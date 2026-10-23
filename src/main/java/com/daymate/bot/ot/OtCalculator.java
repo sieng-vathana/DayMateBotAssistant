@@ -15,12 +15,12 @@ public final class OtCalculator {
     private OtCalculator() {
     }
 
-    public static int daysPerMonth(int workDaysPerWeek) {
-        return 26;
-    }
-
     public static BigDecimal hoursPerMonth(int workDaysPerWeek) {
-        return new BigDecimal("208");
+        int days = workDaysPerWeek >= 6 ? 6 : 5;
+        return BigDecimal.valueOf(days)
+                .multiply(BigDecimal.valueOf(52))
+                .multiply(BigDecimal.valueOf(8))
+                .divide(BigDecimal.valueOf(12), 10, RoundingMode.HALF_UP);
     }
 
     public static Quote quote(BigDecimal monthlySalary, LocalDate date, LocalTime start, LocalTime end,

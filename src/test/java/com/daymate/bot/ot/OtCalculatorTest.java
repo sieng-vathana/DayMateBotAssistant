@@ -11,17 +11,16 @@ import java.time.LocalTime;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class OtCalculatorTest {
-    private static final BigDecimal SALARY = new BigDecimal("480.00");
+    private static final BigDecimal SALARY = new BigDecimal("400.00");
 
     @Test
-    void fiveDayWeekKeepsTwentySixDayRateAndTreatsSaturdayAsWeekend() {
+    void fourHundredOnFiveDayWeekMatchesTheOtherBot() {
         OtCalculator.Quote friday = OtCalculator.quote(
                 SALARY, LocalDate.of(2026, 10, 23), LocalTime.of(16, 30), LocalTime.of(17, 30), 5);
         OtCalculator.Quote saturday = OtCalculator.quote(
                 SALARY, LocalDate.of(2026, 10, 24), LocalTime.of(9, 0), LocalTime.of(17, 30), 5);
 
-        assertThat(OtCalculator.daysPerMonth(5)).isEqualTo(26);
-        assertThat(OtCalculator.hoursPerMonth(5)).isEqualByComparingTo("208");
+        assertThat(OtCalculator.hoursPerMonth(5)).isEqualByComparingTo("173.3333333333");
         assertThat(friday.shift()).isEqualTo(OtShift.EVENING);
         assertThat(friday.paidHours()).isEqualByComparingTo("1.00");
         assertThat(friday.hourlyRate()).isEqualByComparingTo("3.46");
@@ -33,15 +32,15 @@ class OtCalculatorTest {
     }
 
     @Test
-    void sixDayWeekUsesTwentySixDaysAndTreatsSaturdayAsEvening() {
+    void sixDayWeekUsesTwoHundredEightHours() {
         OtCalculator.Quote saturday = OtCalculator.quote(
                 SALARY, LocalDate.of(2026, 10, 24), LocalTime.of(16, 30), LocalTime.of(18, 30), 6);
 
         assertThat(OtCalculator.hoursPerMonth(6)).isEqualByComparingTo("208");
         assertThat(saturday.shift()).isEqualTo(OtShift.EVENING);
         assertThat(saturday.paidHours()).isEqualByComparingTo("2.00");
-        assertThat(saturday.hourlyRate()).isEqualByComparingTo("3.46");
-        assertThat(saturday.amount()).isEqualByComparingTo("6.92");
+        assertThat(saturday.hourlyRate()).isEqualByComparingTo("2.88");
+        assertThat(saturday.amount()).isEqualByComparingTo("5.76");
     }
 
     @Test

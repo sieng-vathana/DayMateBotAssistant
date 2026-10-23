@@ -112,7 +112,7 @@ Dates and "today" use `Asia/Phnom_Penh`.
 
 `/ot` asks for a same-day range such as `16:30-17:30`. A range of 6 hours or more includes a 1 hour break. The rate is monthly base salary divided by the month's normal hours, then multiplied by 1.5 or 2 and rounded to cents.
 
-ACLEDA works 5 days a week, so Monday–Friday OT is Evening at 150% and Saturday and Sunday are Weekend at 200%. The hourly rate is still monthly salary ÷ 26 ÷ 8, the same divisor the other bot uses. A $480 salary is $3.46/h at 150% and $4.62/h at 200%. A 6-day week uses that same rate, and only Sunday is Weekend at 200%.
+ACLEDA works 5 days a week. Normal hours per month are `5 × 52 ÷ 12 × 8` = 173.33. A $400 salary is $2.31 an hour, $3.46 at 150%, and $4.62 at 200%. Saturday and Sunday are Weekend at 200%. A 6-day week uses `6 × 52 ÷ 12 × 8` = 208 hours, and only Sunday is Weekend at 200%.
 
 Before the first OT entry, DayMate asks for salary:
 
