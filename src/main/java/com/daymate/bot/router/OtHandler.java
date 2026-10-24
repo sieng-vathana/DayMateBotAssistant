@@ -460,7 +460,7 @@ public class OtHandler {
 
     private void showMonth(Long chatId, Long userId, YearMonth month) {
         OtRecordService.MonthSummary summary = ot.monthSummary(userId, month);
-        telegram.sendMessage(chatId, formatter.list(summary), listKeyboard(summary));
+        telegram.sendHtml(chatId, formatter.list(summary), listKeyboard(summary));
     }
 
     private void showHistory(Long chatId, Long userId) {

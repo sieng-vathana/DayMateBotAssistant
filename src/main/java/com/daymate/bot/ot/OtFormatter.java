@@ -221,7 +221,8 @@ public class OtFormatter {
     }
 
     public String list(OtRecordService.MonthSummary summary) {
-        String title = Texts.t("📋 OT records — ", "📋 កំណត់ត្រា OT — ") + Texts.month(summary.month());
+        String title = "<b>" + Texts.t("📋 OT records — ", "📋 កំណត់ត្រា OT — ")
+                + Texts.month(summary.month()) + "</b>";
         if (summary.records().isEmpty()) {
             return widen(title + Texts.t(
                     "\n\nNo OT yet this month. Send /ot to add one.",
@@ -229,15 +230,17 @@ public class OtFormatter {
         }
         StringBuilder text = new StringBuilder(title);
         for (OtRecordEntity record : summary.records()) {
-            text.append("\n\n#").append(record.getRecordNumber())
-                    .append(" · ").append(Texts.day(record.getWorkDate()))
-                    .append(" · ").append(shiftLabel(record))
-                    .append('\n').append(clockLine(record));
+            text.append("\n\n<blockquote><b>#").append(record.getRecordNumber()).append("</b> · ")
+                    .append(Texts.day(record.getWorkDate()))
+                    .append("\n").append(shiftMark(record)).append(" <b>")
+                    .append(shiftName(record)).append(" ").append(record.getShift().percent()).append("%</b>")
+                    .append("\n").append(detailLine(record))
+                    .append(" = <b>").append(money(record.getAmount())).append("</b></blockquote>");
         }
-        text.append("\n\n").append(monthLine(summary));
+        text.append("\n\n").append(styledMonthLine(summary));
         text.append(Texts.t(
-                "\n\nTap 🗑 to delete one, or send /del 3.",
-                "\n\nចុច 🗑 ដើម្បីលុប ឬផ្ញើ /del 3។"));
+                "\n\nTap 🗑 to delete one, or send <b>/del 3</b>.",
+                "\n\nចុច 🗑 ដើម្បីលុប ឬផ្ញើ <b>/del 3</b>។"));
         return widen(text.toString());
     }
 
@@ -323,18 +326,34 @@ public class OtFormatter {
         return monthLabel(summary) + " · " + money(summary.amount());
     }
 
+    private String styledMonthLine(OtRecordService.MonthSummary summary) {
+        return "📈 <b>" + Texts.month(summary.month()) + Texts.t(" so far", " មកទល់ពេលនេះ") + "</b>\n"
+                + "<b>" + hours(summary.paidHours()) + "</b> · <b>" + money(summary.amount()) + "</b>";
+    }
+
     private String monthLabel(OtRecordService.MonthSummary summary) {
         return "📈 " + Texts.month(summary.month()) + Texts.t(" so far: ", " មកទល់ពេលនេះ៖ ")
                 + hours(summary.paidHours());
     }
 
-    private String shiftLabel(OtRecordEntity record) {
-        String name = switch (record.getShift()) {
+    private String shiftMark(OtRecordEntity record) {
+        return switch (record.getShift()) {
+            case HOLIDAY -> "🎉";
+            case EVENING -> "🌆";
+            case WEEKEND -> "🌙";
+        };
+    }
+
+    private String shiftName(OtRecordEntity record) {
+        return switch (record.getShift()) {
             case HOLIDAY -> Texts.t("Holiday", "ថ្ងៃឈប់សម្រាក");
             case EVENING -> Texts.t("Evening", "ល្ងាច");
             case WEEKEND -> Texts.t("Weekend", "ចុងសប្តាហ៍");
         };
-        return name + " (" + record.getShift().percent() + "%)";
+    }
+
+    private String shiftLabel(OtRecordEntity record) {
+        return shiftName(record) + " (" + record.getShift().percent() + "%)";
     }
 
     private String scheduleText(int payTimes, int payDay1, Integer payDay2) {
