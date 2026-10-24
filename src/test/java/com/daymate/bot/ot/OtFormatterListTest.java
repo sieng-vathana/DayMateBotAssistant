@@ -28,15 +28,27 @@ class OtFormatterListTest {
 
         String text = formatter.list(summary);
 
-        assertThat(text.lines().filter(line -> line.startsWith("#2")).findFirst().orElseThrow())
-                .isEqualTo("#2\u2003\u2003\u2003Sat, 3 Oct 2026\u2003\u2003\u2003Weekend (200%)\u2003\u2003\u2003"
-                        + "09:00-17:30\u2003\u2003\u20037.50h (incl. 1.00h break)\u2003\u2003\u2003$4.62/h = $34.65");
+        String row = text.lines().filter(line -> line.startsWith("#2")).findFirst().orElseThrow();
+        assertThat(row).isEqualTo("#2 Sat 3 Oct Weekend 200% 09:00-17:30 7.50h+1h $4.62=$34.65");
+        assertThat(row).doesNotContain("\n");
+        assertThat(row.length()).isLessThanOrEqualTo(64);
         assertThat(text).contains("Oct 2026 so far: 7.50h · <b>$34.65</b>");
-        assertThat(text).doesNotContain("<blockquote>");
-        assertThat(text).doesNotContain("<b>#2</b>");
-        assertThat(text.lines().filter(line -> line.contains("#2") || line.contains("09:00") || line.contains("so far"))
-                .noneMatch(line -> line.indexOf('\u3164') >= 0)).isTrue();
-        assertThat(text.lines().reduce((first, second) -> second).orElseThrow())
-                .isEqualTo("\u3164".repeat(96));
+        assertThat(text).doesNotContain("\u3164");
+        assertThat(text).doesNotContain("\u2003");
+    }
+
+    @Test
+    void longestRecordStillFitsOnOneRow() {
+        OtRecordEntity record = new OtRecordEntity(
+                1L, 1L, 12, LocalDate.of(2026, 10, 24),
+                LocalTime.of(8, 0), LocalTime.of(17, 0), OtShift.WEEKEND,
+                new BigDecimal("9.00"), new BigDecimal("1.00"), new BigDecimal("8.00"),
+                new BigDecimal("4.62"), new BigDecimal("36.96"), Instant.EPOCH);
+        String text = formatter.list(new OtRecordService.MonthSummary(
+                YearMonth.of(2026, 10), List.of(record), new BigDecimal("8.00"), new BigDecimal("36.96")));
+        String row = text.lines().filter(line -> line.startsWith("#12")).findFirst().orElseThrow();
+
+        assertThat(row).isEqualTo("#12 Sat 24 Oct Weekend 200% 08:00-17:00 8.00h+1h $4.62=$36.96");
+        assertThat(row.length()).isLessThanOrEqualTo(64);
     }
 }

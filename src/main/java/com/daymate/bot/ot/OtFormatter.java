@@ -12,9 +12,7 @@ import java.time.format.DateTimeFormatter;
 @Component
 public class OtFormatter {
     private static final DateTimeFormatter CLOCK = DateTimeFormatter.ofPattern("HH:mm");
-    /** Full-width and blank in Telegram. One trailing line stretches the bubble; record lines stay plain. */
-    private static final String BUBBLE_PAD = "\u3164".repeat(96);
-    private static final String GAP = "\u2003\u2003\u2003";
+    private static final DateTimeFormatter LIST_DAY = DateTimeFormatter.ofPattern("EEE d MMM", java.util.Locale.ENGLISH);
 
     public String oneLinePrompt(java.time.LocalDate today) {
         String month = Texts.monthLong(today);
@@ -224,9 +222,9 @@ public class OtFormatter {
     public String list(OtRecordService.MonthSummary summary) {
         String title = Texts.t("📋 OT records — ", "📋 កំណត់ត្រា OT — ") + Texts.month(summary.month());
         if (summary.records().isEmpty()) {
-            return widen(title + Texts.t(
+            return title + Texts.t(
                     "\n\nNo OT yet this month. Send /ot to add one.",
-                    "\n\nមិនទាន់មានម៉ោងបន្ថែមខែនេះទេ។ ផ្ញើ /ot ដើម្បីបន្ថែម។"));
+                    "\n\nមិនទាន់មានម៉ោងបន្ថែមខែនេះទេ។ ផ្ញើ /ot ដើម្បីបន្ថែម។");
         }
         StringBuilder text = new StringBuilder(title);
         for (OtRecordEntity record : summary.records()) {
@@ -236,11 +234,7 @@ public class OtFormatter {
         text.append(Texts.t(
                 "\n\nTap 🗑 to delete one, or send /del 3.",
                 "\n\nចុច 🗑 ដើម្បីលុប ឬផ្ញើ /del 3។"));
-        return widen(text.toString());
-    }
-
-    private static String widen(String text) {
-        return text + "\n" + BUBBLE_PAD;
+        return text.toString();
     }
 
     public String history(java.util.List<java.time.YearMonth> months) {
@@ -299,17 +293,27 @@ public class OtFormatter {
     }
 
     private String listRow(OtRecordEntity record) {
-        String hours = record.getBreakHours().signum() > 0
-                ? hours(record.getPaidHours()) + Texts.t(
-                " (incl. " + hours(record.getBreakHours()) + " break)",
-                " (រួមសម្រាក " + hours(record.getBreakHours()) + ")")
-                : hours(record.getPaidHours()) + Texts.t(" paid", " បានបង់");
+        String hours = hours(record.getPaidHours());
+        if (record.getBreakHours().signum() > 0) {
+            String breakHours = hours(record.getBreakHours());
+            if (breakHours.endsWith(".00h")) {
+                breakHours = breakHours.substring(0, breakHours.length() - 4) + "h";
+            }
+            hours += "+" + breakHours;
+        }
         return "#" + record.getRecordNumber()
-                + GAP + Texts.day(record.getWorkDate())
-                + GAP + shiftLabel(record)
-                + GAP + CLOCK.format(record.getStartTime()) + "-" + CLOCK.format(record.getEndTime())
-                + GAP + hours
-                + GAP + money(record.getHourlyRate()) + "/h = " + money(record.getAmount());
+                + " " + listDay(record.getWorkDate())
+                + " " + shiftName(record) + " " + record.getShift().percent() + "%"
+                + " " + CLOCK.format(record.getStartTime()) + "-" + CLOCK.format(record.getEndTime())
+                + " " + hours
+                + " " + money(record.getHourlyRate()) + "=" + money(record.getAmount());
+    }
+
+    private String listDay(java.time.LocalDate date) {
+        if (com.daymate.bot.i18n.LanguageContext.get() == com.daymate.bot.domain.Language.KM) {
+            return Texts.day(date).replace(" " + date.getYear(), "");
+        }
+        return LIST_DAY.format(date);
     }
 
     private String line(OtRecordEntity record) {
@@ -340,13 +344,16 @@ public class OtFormatter {
                 + hours(summary.paidHours());
     }
 
-    private String shiftLabel(OtRecordEntity record) {
-        String name = switch (record.getShift()) {
+    private String shiftName(OtRecordEntity record) {
+        return switch (record.getShift()) {
             case HOLIDAY -> Texts.t("Holiday", "ថ្ងៃឈប់សម្រាក");
             case EVENING -> Texts.t("Evening", "ល្ងាច");
             case WEEKEND -> Texts.t("Weekend", "ចុងសប្តាហ៍");
         };
-        return name + " (" + record.getShift().percent() + "%)";
+    }
+
+    private String shiftLabel(OtRecordEntity record) {
+        return shiftName(record) + " (" + record.getShift().percent() + "%)";
     }
 
     private String scheduleText(int payTimes, int payDay1, Integer payDay2) {
