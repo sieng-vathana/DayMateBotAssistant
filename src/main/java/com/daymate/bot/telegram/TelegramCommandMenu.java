@@ -36,6 +36,8 @@ public class TelegramCommandMenu implements ApplicationRunner {
                 command("menu", "Open the menu"),
                 command("ot", "Record overtime"),
                 command("otlist", "Overtime this month"),
+                command("othistory", "OT by month"),
+                command("link", "Link this chat to the website"),
                 command("salary", "Hourly pay and base salary"),
                 command("upcoming_salary", "Next payday"),
                 command("note", "Save a note"),

@@ -7,6 +7,7 @@ import com.daymate.bot.core.module.MenuAction;
 import com.daymate.bot.domain.ConversationStep;
 import com.daymate.bot.entity.ConversationStateEntity;
 import com.daymate.bot.i18n.Texts;
+import com.daymate.bot.portal.PortalAccountService;
 import com.daymate.bot.router.OtHandler;
 import com.daymate.bot.telegram.TelegramApiClient;
 import org.springframework.stereotype.Component;
@@ -29,10 +30,12 @@ public class OvertimeModule implements BotModule {
     public static final String REMINDER = "ot.reminder";
 
     private final OtHandler ot;
+    private final PortalAccountService portal;
     private final TelegramApiClient telegram;
 
-    public OvertimeModule(OtHandler ot, TelegramApiClient telegram) {
+    public OvertimeModule(OtHandler ot, PortalAccountService portal, TelegramApiClient telegram) {
         this.ot = ot;
+        this.portal = portal;
         this.telegram = telegram;
     }
 
@@ -64,7 +67,7 @@ public class OvertimeModule implements BotModule {
     @Override
     public List<String> commands() {
         return List.of("/ot", "/ot-record", "/otlist", "/ot-list", "/ot-history", "/othistory", "/ot_history",
-                "/del", "/delete", "/salary", "/upcoming_salary", "/upcomingsalary", "/upcoming-salary");
+                "/del", "/delete", "/salary", "/upcoming_salary", "/upcomingsalary", "/upcoming-salary", "/link");
     }
 
     @Override
@@ -98,6 +101,7 @@ public class OvertimeModule implements BotModule {
             case "/del", "/delete" -> DELETE;
             case "/salary" -> SALARY;
             case "/upcoming_salary", "/upcomingsalary", "/upcoming-salary" -> UPCOMING;
+            case "/link" -> null;
             default -> null;
         };
     }
@@ -183,6 +187,14 @@ public class OvertimeModule implements BotModule {
             case "/del", "/delete" -> ot.deleteCommand(chatId, userId, arguments);
             case "/salary" -> ot.startSalary(chatId, userId);
             case "/upcoming_salary", "/upcomingsalary", "/upcoming-salary" -> ot.upcoming(chatId, userId);
+            case "/link" -> {
+                String code = portal.issueLinkCode(userId);
+                telegram.sendMessage(chatId, Texts.t(
+                        "Open the portal: " + portal.portalUrl() + "\nLog in, then enter this code:\n" + code
+                                + "\nIt expires in 15 minutes.",
+                        "បើកវេប៖ " + portal.portalUrl() + "\nចូលគណនី បន្ទាប់មកបញ្ចូលលេខកូដនេះ៖\n" + code
+                                + "\nផុតកំណត់ក្នុង 15 នាទី។"));
+            }
             default -> telegram.sendMessage(chatId, Texts.t(
                     "I don't know that command. Send /help to see what I can do.",
                     "ខ្ញុំមិនស្គាល់ពាក្យបញ្ជានេះទេ។ ផ្ញើ /help ដើម្បីមើលអ្វីដែលខ្ញុំធ្វើបាន។"));
