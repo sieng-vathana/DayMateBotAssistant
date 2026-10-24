@@ -1,5 +1,6 @@
 package com.daymate.bot.ot;
 
+import com.daymate.bot.domain.OtShift;
 import com.daymate.bot.domain.OtTimeRange;
 import com.daymate.bot.entity.OtRecordEntity;
 import com.daymate.bot.entity.SalaryProfileEntity;
@@ -133,13 +134,16 @@ public class OtRecordService {
     }
 
     @Transactional
-    public SavedOt update(Long userId, int recordNumber, YearMonth month, OtTimeRange range,
-                          com.daymate.bot.domain.OtShift shift) {
+    public SavedOt update(Long userId, int recordNumber, YearMonth month, OtTimeRange range, OtShift shift) {
         SalaryProfileEntity profile = salaries.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("Set your base salary before recording OT."));
         YearMonth target = month == null ? currentMonth() : month;
         OtRecordEntity record = findRecord(userId, recordNumber, target)
                 .orElseThrow(() -> new IllegalArgumentException("OT #" + recordNumber + " was not found."));
+        if (shift == OtShift.EVENING
+                && OtShift.forDate(record.getWorkDate(), profile.resolvedWorkDaysPerWeek()) == OtShift.WEEKEND) {
+            shift = OtShift.WEEKEND;
+        }
         OtCalculator.Quote quote = OtCalculator.quote(
                 profile.getMonthlySalary(), range.start(), range.end(), shift, profile.resolvedWorkDaysPerWeek());
         record.apply(range.start(), range.end(), quote);

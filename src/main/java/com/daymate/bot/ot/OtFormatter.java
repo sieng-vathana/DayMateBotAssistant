@@ -231,17 +231,21 @@ public class OtFormatter {
         String sample = weekend
                 ? "<b>08:30-17:30</b>"
                 : "<b>08:30-17:30</b>\n<b>08:30-17:30 holiday</b>";
+        String english = weekend
+                ? "The day stays the same. This day is weekend OT at 200%.\nTap a time, or type one:\n"
+                : "The day stays the same. Tap a new time, or a rate to keep these hours.\nOr type a time:\n";
+        String khmer = weekend
+                ? "ថ្ងៃនៅដដែល។ ថ្ងៃនេះជាម៉ោងបន្ថែមចុងសប្តាហ៍ 200%។\nចុចម៉ោង ឬវាយម៉ោង៖\n"
+                : "ថ្ងៃនៅដដែល។ ចុចម៉ោងថ្មី ឬអត្រា ដើម្បីរក្សាម៉ោងនេះ។\nឬវាយម៉ោង៖\n";
         return Texts.t(
                 "✏️ Edit OT #" + record.getRecordNumber() + "\n"
                         + Texts.day(record.getWorkDate()) + "\n"
                         + clockLine(record) + "\n\n"
-                        + "The day stays the same. Tap a new time, or a rate to keep these hours.\n"
-                        + "Or type a time:\n" + sample,
+                        + english + sample,
                 "✏️ កែ OT #" + record.getRecordNumber() + "\n"
                         + Texts.day(record.getWorkDate()) + "\n"
                         + clockLine(record) + "\n\n"
-                        + "ថ្ងៃនៅដដែល។ ចុចម៉ោងថ្មី ឬអត្រា ដើម្បីរក្សាម៉ោងនេះ។\n"
-                        + "ឬវាយម៉ោង៖\n" + sample);
+                        + khmer + sample);
     }
 
     public String list(OtRecordService.MonthSummary summary) {

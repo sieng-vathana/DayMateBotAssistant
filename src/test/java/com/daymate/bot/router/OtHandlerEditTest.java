@@ -91,17 +91,16 @@ class OtHandlerEditTest {
         @SuppressWarnings("unchecked")
         ArgumentCaptor<List<List<Map<String, String>>>> keyboard = ArgumentCaptor.forClass(List.class);
         verify(telegram).sendHtml(eq(9L), text.capture(), keyboard.capture());
-        assertThat(text.getValue()).contains("Edit OT #1").doesNotContain("holiday");
+        assertThat(text.getValue()).contains("Edit OT #1", "weekend OT at 200%").doesNotContain("holiday");
         assertThat(labels(keyboard.getValue())).containsExactly(
                 "07:30-16:30 · Weekend",
                 "08:30-17:30 · Weekend",
                 "09:30-18:30 · Weekend",
-                "Evening 150%",
-                "Weekend 200%",
                 "← List",
                 "❌ Cancel");
+        assertThat(labels(keyboard.getValue())).doesNotContain("Evening 150%", "Weekend 200%");
         assertThat(keyboard.getValue().get(0).get(0).get("callback_data")).isEqualTo("ot:edittime:202610:1:0730:1630:W");
-        assertThat(callbacks(keyboard.getValue().get(3))).containsExactly("ot:editrate:2026-10:1:E", "ot:editrate:2026-10:1:W");
+        assertThat(callbacks(keyboard.getValue().get(3))).containsExactly("ot:editback:2026-10", "ot:cancel");
     }
 
     @Test

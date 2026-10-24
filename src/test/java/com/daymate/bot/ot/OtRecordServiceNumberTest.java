@@ -138,6 +138,37 @@ class OtRecordServiceNumberTest {
     }
 
     @Test
+    void weekendEditKeepsWeekendInsteadOfEvening() {
+        LocalDate saturday = LocalDate.of(2026, 10, 10);
+        OtRecordEntity record = entry(3L, 1, saturday, LocalTime.of(8, 0));
+        when(salaries.findById(1L)).thenReturn(Optional.of(salary()));
+        when(records.findByTelegramUserIdAndWorkDateBetweenOrderByWorkDateAscStartTimeAscIdAsc(
+                eq(1L), any(), any())).thenReturn(new ArrayList<>(List.of(record)));
+
+        service.update(1L, 1, YearMonth.of(2026, 10),
+                new OtTimeRange(LocalTime.of(8, 0), LocalTime.of(17, 0)), OtShift.EVENING);
+
+        assertThat(record.getWorkDate()).isEqualTo(saturday);
+        assertThat(record.getShift()).isEqualTo(OtShift.WEEKEND);
+        assertThat(record.getHourlyRate()).isEqualByComparingTo("4.62");
+    }
+
+    @Test
+    void sixDaySaturdayCanStayEvening() {
+        LocalDate saturday = LocalDate.of(2026, 10, 10);
+        OtRecordEntity record = entry(3L, 1, saturday, LocalTime.of(8, 0));
+        when(salaries.findById(1L)).thenReturn(Optional.of(
+                new SalaryProfileEntity(1L, false, 1, 26, null, 6, new BigDecimal("400.00"), Instant.EPOCH)));
+        when(records.findByTelegramUserIdAndWorkDateBetweenOrderByWorkDateAscStartTimeAscIdAsc(
+                eq(1L), any(), any())).thenReturn(new ArrayList<>(List.of(record)));
+
+        service.update(1L, 1, YearMonth.of(2026, 10),
+                new OtTimeRange(LocalTime.of(8, 0), LocalTime.of(17, 0)), OtShift.EVENING);
+
+        assertThat(record.getShift()).isEqualTo(OtShift.EVENING);
+    }
+
+    @Test
     void missingRecordIsRejected() {
         when(salaries.findById(1L)).thenReturn(Optional.of(salary()));
         when(records.findByTelegramUserIdAndWorkDateBetweenOrderByWorkDateAscStartTimeAscIdAsc(

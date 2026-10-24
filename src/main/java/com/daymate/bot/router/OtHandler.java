@@ -742,14 +742,11 @@ public class OtHandler {
         }
         if (!weekend) {
             rows.add(List.of(editSlot(record, "08:30", "17:30", OtShift.HOLIDAY)));
+            rows.add(List.of(
+                    editRate(record, OtShift.EVENING),
+                    editRate(record, OtShift.WEEKEND),
+                    editRate(record, OtShift.HOLIDAY)));
         }
-        List<Map<String, String>> rates = new ArrayList<>();
-        rates.add(editRate(record, OtShift.EVENING));
-        rates.add(editRate(record, OtShift.WEEKEND));
-        if (!weekend) {
-            rates.add(editRate(record, OtShift.HOLIDAY));
-        }
-        rows.add(rates);
         rows.add(List.of(
                 button(Texts.t("← List", "← បញ្ជី"), "ot:editback:" + YearMonth.from(date)),
                 button(Texts.t("❌ Cancel", "❌ បោះបង់"), "ot:cancel")));
