@@ -12,8 +12,13 @@ import java.time.format.DateTimeFormatter;
 @Component
 public class OtFormatter {
     private static final DateTimeFormatter CLOCK = DateTimeFormatter.ofPattern("HH:mm");
-    /** Telegram sizes the bubble from the longest line. Braille blanks add width and stay invisible. */
-    private static final String BUBBLE_PAD = "\u2800".repeat(48);
+    /**
+     * Telegram sizes the bubble from the longest line. Hangul filler is invisible and full-width,
+     * so a line of them pushes the bubble to the right edge of the chat.
+     */
+    private static final int LINE_WIDTH = 80;
+    private static final String FILLER = "\u3164";
+    private static final String BUBBLE_PAD = FILLER.repeat(64);
 
     public String oneLinePrompt(java.time.LocalDate today) {
         String month = Texts.monthLong(today);
@@ -204,12 +209,13 @@ public class OtFormatter {
         }
         StringBuilder text = new StringBuilder(title);
         for (OtRecordEntity record : summary.records()) {
-            text.append("\n\n#").append(record.getRecordNumber())
-                    .append(" · ").append(Texts.day(record.getWorkDate()))
-                    .append(" · ").append(shiftLabel(record))
-                    .append('\n').append(clockLine(record));
+            String left = "#" + record.getRecordNumber()
+                    + " · " + Texts.day(record.getWorkDate())
+                    + " · " + shiftLabel(record);
+            text.append("\n\n").append(pushRight(left, money(record.getAmount())));
+            text.append('\n').append(detailLine(record));
         }
-        text.append("\n\n").append(monthLine(summary));
+        text.append("\n\n").append(pushRight(monthLabel(summary), money(summary.amount())));
         text.append(Texts.t(
                 "\n\nTap 🗑 to delete one, or send /del 3.",
                 "\n\nចុច 🗑 ដើម្បីលុប ឬផ្ញើ /del 3។"));
@@ -272,7 +278,33 @@ public class OtFormatter {
     }
 
     private static String widen(String text) {
-        return text + BUBBLE_PAD;
+        return text + "\n" + BUBBLE_PAD;
+    }
+
+    private static String pushRight(String left, String right) {
+        int fillers = Math.max(1, (LINE_WIDTH - displayWidth(left) - displayWidth(right) - 2) / 2);
+        return left + " " + FILLER.repeat(fillers) + " " + right;
+    }
+
+    private static int displayWidth(String text) {
+        int width = 0;
+        for (int i = 0; i < text.length(); ) {
+            int cp = text.codePointAt(i);
+            i += Character.charCount(cp);
+            width += cp == 0x3164 || isWide(cp) ? 2 : 1;
+        }
+        return width;
+    }
+
+    private static boolean isWide(int cp) {
+        return (cp >= 0x1100 && cp <= 0x115F)
+                || (cp >= 0x2E80 && cp <= 0xA4CF)
+                || (cp >= 0xAC00 && cp <= 0xD7A3)
+                || (cp >= 0xF900 && cp <= 0xFAFF)
+                || (cp >= 0xFE10 && cp <= 0xFE6F)
+                || (cp >= 0xFF00 && cp <= 0xFF60)
+                || (cp >= 0x1F300 && cp <= 0x1FAFF)
+                || (cp >= 0x2600 && cp <= 0x27BF);
     }
 
     private String line(OtRecordEntity record) {
@@ -280,6 +312,10 @@ public class OtFormatter {
     }
 
     private String clockLine(OtRecordEntity record) {
+        return detailLine(record) + " = " + money(record.getAmount());
+    }
+
+    private String detailLine(OtRecordEntity record) {
         String hours = record.getBreakHours().signum() > 0
                 ? hours(record.getPaidHours()) + Texts.t(
                 " (incl. " + hours(record.getBreakHours()) + " break)",
@@ -287,12 +323,16 @@ public class OtFormatter {
                 : hours(record.getPaidHours()) + Texts.t(" paid", " បានបង់");
         return CLOCK.format(record.getStartTime()) + "-" + CLOCK.format(record.getEndTime())
                 + " → " + hours
-                + " × " + money(record.getHourlyRate()) + "/h = " + money(record.getAmount());
+                + " × " + money(record.getHourlyRate()) + "/h";
     }
 
     private String monthLine(OtRecordService.MonthSummary summary) {
+        return monthLabel(summary) + " · " + money(summary.amount());
+    }
+
+    private String monthLabel(OtRecordService.MonthSummary summary) {
         return "📈 " + Texts.month(summary.month()) + Texts.t(" so far: ", " មកទល់ពេលនេះ៖ ")
-                + hours(summary.paidHours()) + " · " + money(summary.amount());
+                + hours(summary.paidHours());
     }
 
     private String shiftLabel(OtRecordEntity record) {
