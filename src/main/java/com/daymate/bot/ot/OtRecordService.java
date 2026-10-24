@@ -163,9 +163,32 @@ public class OtRecordService {
                 BigDecimal.valueOf(Math.max(1, profile.getPayTimes())), 2, java.math.RoundingMode.HALF_UP);
         java.util.ArrayList<Payday> pays = new java.util.ArrayList<>();
         for (LocalDate date : dates) {
-            pays.add(new Payday(date, each));
+            BigDecimal ot = includesOvertime(profile, date) ? otPaid(userId, YearMonth.from(date)) : moneyZero();
+            pays.add(new Payday(date, each, ot));
         }
         return new UpcomingSalary(profile, hourly.setScale(2, java.math.RoundingMode.HALF_UP), pays);
+    }
+
+    private boolean includesOvertime(SalaryProfileEntity profile, LocalDate date) {
+        if (!profile.isAcledaEmployee() || profile.getPayTimes() < 2) {
+            return false;
+        }
+        int[] days = payDays(profile);
+        int lastDay = Math.min(days[days.length - 1], YearMonth.from(date).lengthOfMonth());
+        return date.getDayOfMonth() == lastDay;
+    }
+
+    private BigDecimal otPaid(Long userId, YearMonth month) {
+        BigDecimal total = moneyZero();
+        for (OtRecordEntity row : records.findByTelegramUserIdAndWorkDateBetweenOrderByWorkDateAscStartTimeAscIdAsc(
+                userId, month.atDay(1), month.atEndOfMonth())) {
+            total = total.add(row.getAmount());
+        }
+        return total.setScale(2, java.math.RoundingMode.HALF_UP);
+    }
+
+    private static BigDecimal moneyZero() {
+        return BigDecimal.ZERO.setScale(2, java.math.RoundingMode.HALF_UP);
     }
 
     private static int[] payDays(SalaryProfileEntity profile) {
@@ -189,7 +212,10 @@ public class OtRecordService {
     public record MonthSummary(YearMonth month, List<OtRecordEntity> records, BigDecimal paidHours, BigDecimal amount) {
     }
 
-    public record Payday(LocalDate date, BigDecimal amount) {
+    public record Payday(LocalDate date, BigDecimal amount, BigDecimal ot) {
+        public BigDecimal total() {
+            return amount.add(ot);
+        }
     }
 
     public record UpcomingSalary(SalaryProfileEntity profile, BigDecimal hourly, List<Payday> next) {

@@ -156,13 +156,26 @@ public class OtFormatter {
             text.append(Texts.t("\n\nNo payday found.", "\n\nរកមិនឃើញថ្ងៃបើកប្រាក់ខែទេ។"));
             return text.toString();
         }
-        text.append(Texts.t("\n\nNext: ", "\n\nបន្ទាប់៖ ")).append(Texts.day(upcoming.next().get(0).date()));
-        text.append(Texts.t("\nThis payday: ", "\nប្រាក់ខែលើកនេះ៖ ")).append(money(upcoming.next().get(0).amount()));
+        boolean acleda = upcoming.profile().isAcledaEmployee();
+        appendPayday(text, upcoming.next().get(0), acleda, true);
         if (upcoming.next().size() > 1) {
-            text.append(Texts.t("\n\nAfter that: ", "\n\nបន្ទាប់ទៀត៖ ")).append(Texts.day(upcoming.next().get(1).date()));
-            text.append(Texts.t("\nThis payday: ", "\nប្រាក់ខែលើកនេះ៖ ")).append(money(upcoming.next().get(1).amount()));
+            appendPayday(text, upcoming.next().get(1), acleda, false);
         }
         return text.toString();
+    }
+
+    private void appendPayday(StringBuilder text, OtRecordService.Payday payday, boolean acleda, boolean first) {
+        text.append(first
+                ? Texts.t("\n\nNext: ", "\n\nបន្ទាប់៖ ")
+                : Texts.t("\n\nAfter that: ", "\n\nបន្ទាប់ទៀត៖ "));
+        text.append(Texts.day(payday.date()));
+        if (!acleda) {
+            text.append(Texts.t("\nThis payday: ", "\nប្រាក់ខែលើកនេះ៖ ")).append(money(payday.amount()));
+            return;
+        }
+        text.append(Texts.t("\nBase: ", "\nប្រាក់ខែគោល: ")).append(money(payday.amount()));
+        text.append(Texts.t("\nOT paid: ", "\nប្រាក់ OT: ")).append(money(payday.ot()));
+        text.append(Texts.t("\nTotal income: ", "\nចំណូលសរុប: ")).append(money(payday.total()));
     }
 
     public String salarySummary(SalaryProfileEntity profile) {
