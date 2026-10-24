@@ -88,7 +88,8 @@ class CommandRouterTest {
         lenient().when(guard.decide(any(), any(), nullable(String.class))).thenReturn(AccessDecision.MODULE_OFF);
         lenient().when(guard.decide(any(), eq("overtime"), nullable(String.class))).thenReturn(AccessDecision.ALLOW);
         lenient().when(guard.visible(any(), any())).thenAnswer(invocation ->
-                "overtime".equals(((com.daymate.bot.core.module.BotModule) invocation.getArgument(1)).moduleId()));
+                invocation.getArgument(1) instanceof com.daymate.bot.core.module.BotModule module
+                        && "overtime".equals(module.moduleId()));
         PlannerFormatter formatter = new PlannerFormatter();
         ModuleRegistry registry = new ModuleRegistry(List.of(
                 new OvertimeModule(otHandler, telegram),
@@ -116,6 +117,34 @@ class CommandRouterTest {
                 .containsEntry("text", "Overtime")
                 .containsEntry("callback_data", "menu:overtime");
         verify(conversations).clear(1L);
+    }
+
+    @Test
+    void menuListsNotesCommandsAndActions() {
+        lenient().when(guard.visible(any(), any())).thenAnswer(invocation ->
+                invocation.getArgument(1) instanceof com.daymate.bot.core.module.BotModule module
+                        && ("overtime".equals(module.moduleId()) || "notes".equals(module.moduleId())));
+        when(guard.decide(any(), eq("notes"), nullable(String.class))).thenReturn(AccessDecision.ALLOW);
+
+        router.process(message(1L, "/menu"));
+
+        ArgumentCaptor<String> text = ArgumentCaptor.forClass(String.class);
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<List<Map<String, String>>>> keyboard = ArgumentCaptor.forClass(List.class);
+        verify(telegram).sendMessage(eq(1L), text.capture(), keyboard.capture());
+        assertThat(text.getValue()).contains("/note — Save a note");
+        assertThat(text.getValue()).contains("/notes — Notes menu");
+        assertThat(keyboard.getValue())
+                .extracting(row -> row.get(0).get("text"))
+                .containsExactly(
+                        "Overtime",
+                        "📌 Notes",
+                        "➕ New Note",
+                        "📋 My Notes",
+                        "🔍 Search Notes",
+                        "📌 Pinned Notes");
+        assertThat(keyboard.getValue().get(2).get(0)).containsEntry("callback_data", "note:new");
+        assertThat(keyboard.getValue().get(3).get(0)).containsEntry("callback_data", "note:list:0");
     }
 
     @Test

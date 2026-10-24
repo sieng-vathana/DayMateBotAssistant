@@ -15,6 +15,7 @@ import com.daymate.bot.domain.Language;
 import com.daymate.bot.dto.request.TelegramUpdateRequest;
 import com.daymate.bot.entity.ConversationStateEntity;
 import com.daymate.bot.i18n.LanguageContext;
+import com.daymate.bot.modules.notes.NotesModule;
 import com.daymate.bot.modules.overtime.OvertimeModule;
 import com.daymate.bot.service.ConversationLookup;
 import com.daymate.bot.service.ConversationService;
@@ -228,7 +229,11 @@ public class CommandRouter {
         boolean overtimeAllowed = registry.find(OvertimeModule.ID)
                 .map(module -> guard.visible(userId, module))
                 .orElse(false);
-        telegram.sendMessage(chatId, overtimeAllowed ? formatter.help() : formatter.helpWhenOvertimeHidden());
+        String text = overtimeAllowed ? formatter.help() : formatter.helpWhenOvertimeHidden();
+        if (notesVisible(userId)) {
+            text = formatter.withNotesCommands(text);
+        }
+        telegram.sendMessage(chatId, text);
     }
 
     private void showMainMenu(Long chatId, Long userId) {
@@ -240,11 +245,23 @@ public class CommandRouter {
             telegram.sendMessage(chatId, formatter.welcome());
             return;
         }
+        boolean notesOn = visible.stream().anyMatch(module -> NotesModule.ID.equals(module.moduleId()));
+        String text = notesOn ? formatter.withNotesCommands(formatter.welcome()) : formatter.welcome();
         List<List<Map<String, String>>> rows = new ArrayList<>();
         for (BotModule module : visible) {
             rows.add(List.of(button(module.displayName(), "menu:" + module.moduleId())));
+            if (notesOn && NotesModule.ID.equals(module.moduleId()) && module instanceof NotesModule notes) {
+                rows.addAll(notes.optionRows(feature ->
+                        guard.decide(userId, module.moduleId(), feature) == AccessDecision.ALLOW));
+            }
         }
-        telegram.sendMessage(chatId, formatter.welcome(), rows);
+        telegram.sendMessage(chatId, text, rows);
+    }
+
+    private boolean notesVisible(Long userId) {
+        return registry.find(NotesModule.ID)
+                .map(module -> guard.visible(userId, module))
+                .orElse(false);
     }
 
     private void handleMenu(String callbackId, Long chatId, Long messageId, Long userId, String data) {

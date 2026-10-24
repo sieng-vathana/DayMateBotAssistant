@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Predicate;
 
 @Component
 public class NotesModule implements BotModule {
@@ -107,10 +108,20 @@ public class NotesModule implements BotModule {
     @Override
     public List<MenuAction> menuActions() {
         return List.of(
-                new MenuAction("new", "New Note", "កំណត់ចំណាំថ្មី", CREATE),
-                new MenuAction("list", "My Notes", "កំណត់ចំណាំរបស់ខ្ញុំ", VIEW),
-                new MenuAction("search", "Search Notes", "ស្វែងរក", SEARCH),
-                new MenuAction("pinned", "Pinned Notes", "កំណត់ចំណាំដែលខ្ទាស់", PIN));
+                new MenuAction("new", "➕ New Note", "➕ កំណត់ចំណាំថ្មី", CREATE),
+                new MenuAction("list", "📋 My Notes", "📋 កំណត់ចំណាំរបស់ខ្ញុំ", VIEW),
+                new MenuAction("search", "🔍 Search Notes", "🔍 ស្វែងរក", SEARCH),
+                new MenuAction("pinned", "📌 Pinned Notes", "📌 កំណត់ចំណាំដែលខ្ទាស់", PIN));
+    }
+
+    public List<List<Map<String, String>>> optionRows(Predicate<String> allowed) {
+        List<List<Map<String, String>>> rows = new ArrayList<>();
+        for (MenuAction action : menuActions()) {
+            if (allowed.test(action.featureKey())) {
+                rows.add(List.of(button(action.label(), menuCallback(action))));
+            }
+        }
+        return rows;
     }
 
     @Override
@@ -303,19 +314,7 @@ public class NotesModule implements BotModule {
 
     private void renderMenu(BotContext context) {
         clearOwn(context);
-        List<List<Map<String, String>>> rows = new ArrayList<>();
-        if (context.allows(CREATE)) {
-            rows.add(row("➕ New Note", "➕ កំណត់ចំណាំថ្មី", "note:new"));
-        }
-        if (context.allows(VIEW)) {
-            rows.add(row("📋 My Notes", "📋 កំណត់ចំណាំរបស់ខ្ញុំ", "note:list:0"));
-        }
-        if (context.allows(SEARCH)) {
-            rows.add(row("🔍 Search Notes", "🔍 ស្វែងរក", "note:search"));
-        }
-        if (context.allows(PIN)) {
-            rows.add(row("📌 Pinned Notes", "📌 កំណត់ចំណាំដែលខ្ទាស់", "note:pinlist:0"));
-        }
+        List<List<Map<String, String>>> rows = new ArrayList<>(optionRows(context::allows));
         rows.add(row("⬅️ Main Menu", "⬅️ ម៉ឺនុយដើម", "menu:home"));
         present(context, formatter.menu(), rows);
     }
@@ -916,6 +915,16 @@ public class NotesModule implements BotModule {
 
     private static Map<String, String> button(String text, String data) {
         return Map.of("text", text, "callback_data", data);
+    }
+
+    private static String menuCallback(MenuAction action) {
+        return switch (action.action()) {
+            case "new" -> "note:new";
+            case "list" -> "note:list:0";
+            case "search" -> "note:search";
+            case "pinned" -> "note:pinlist:0";
+            default -> "note:menu";
+        };
     }
 
     private static FeatureDeclaration open(String key) {

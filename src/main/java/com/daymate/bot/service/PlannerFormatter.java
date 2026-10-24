@@ -51,6 +51,23 @@ public class PlannerFormatter {
                 សូមធ្វើឱ្យថ្ងៃនេះមានផលិតភាព! 💪""");
     }
 
+    public String withNotesCommands(String text) {
+        String block = Texts.t("""
+                /notes — Notes menu
+                /note — Save a note
+                /search — Search notes
+                /pinned — Pinned notes""", """
+                /notes — ម៉ឺនុយកំណត់ចំណាំ
+                /note — រក្សាកំណត់ចំណាំ
+                /search — ស្វែងរកកំណត់ចំណាំ
+                /pinned — កំណត់ចំណាំដែលខ្ទាស់""");
+        int at = text.indexOf("/language");
+        if (at < 0) {
+            return text + "\n\n" + block;
+        }
+        return text.substring(0, at) + block + "\n" + text.substring(at);
+    }
+
     public String help() {
         return Texts.t("""
                 ❓ DayMate Help
