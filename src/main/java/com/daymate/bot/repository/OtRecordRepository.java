@@ -2,21 +2,13 @@ package com.daymate.bot.repository;
 
 import com.daymate.bot.entity.OtRecordEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
 
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Optional;
 
 public interface OtRecordRepository extends JpaRepository<OtRecordEntity, Long> {
-    @Query("select max(o.recordNumber) from OtRecordEntity o where o.telegramUserId = :userId")
-    Integer findMaxRecordNumber(Long userId);
-
-    List<OtRecordEntity> findByTelegramUserIdAndWorkDateBetweenOrderByWorkDateAscRecordNumberAsc(
+    List<OtRecordEntity> findByTelegramUserIdAndWorkDateBetweenOrderByWorkDateAscStartTimeAscIdAsc(
             Long telegramUserId, LocalDate start, LocalDate end);
-
-    Optional<OtRecordEntity> findByTelegramUserIdAndRecordNumber(
-            Long telegramUserId, int recordNumber);
 
     List<OtRecordEntity> findByTelegramUserIdOrderByWorkDateDesc(Long telegramUserId);
 }

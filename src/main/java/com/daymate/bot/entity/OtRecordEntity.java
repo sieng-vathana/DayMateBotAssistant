@@ -88,6 +88,10 @@ public class OtRecordEntity {
         return recordNumber;
     }
 
+    public void setRecordNumber(int recordNumber) {
+        this.recordNumber = recordNumber;
+    }
+
     public LocalDate getWorkDate() {
         return workDate;
     }

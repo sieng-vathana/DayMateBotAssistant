@@ -116,7 +116,7 @@ public class OtHandler {
             telegram.sendMessage(chatId, formatter.deleteUsage());
             return;
         }
-        YearMonth month = null;
+        YearMonth month = ot.currentMonth();
         if (parts.length > 1) {
             Optional<YearMonth> parsed = MonthParser.parse(parts[1], ot.today());
             if (parsed.isEmpty()) {
@@ -125,8 +125,8 @@ public class OtHandler {
             }
             month = parsed.get();
         }
-        Optional<com.daymate.bot.entity.OtRecordEntity> record = ot.findRecord(userId, number);
-        if (record.isEmpty() || (month != null && !YearMonth.from(record.get().getWorkDate()).equals(month))) {
+        Optional<com.daymate.bot.entity.OtRecordEntity> record = ot.findRecord(userId, number, month);
+        if (record.isEmpty()) {
             telegram.sendMessage(chatId, formatter.recordNotFound(number));
             return;
         }
@@ -473,8 +473,9 @@ public class OtHandler {
         if (parts.length != 2) {
             return;
         }
+        YearMonth month = YearMonth.parse(parts[0]);
         int number = Integer.parseInt(parts[1]);
-        Optional<com.daymate.bot.entity.OtRecordEntity> record = ot.findRecord(userId, number);
+        Optional<com.daymate.bot.entity.OtRecordEntity> record = ot.findRecord(userId, number, month);
         if (record.isEmpty()) {
             telegram.sendMessage(chatId, formatter.recordNotFound(number));
             return;

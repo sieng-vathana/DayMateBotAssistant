@@ -68,9 +68,8 @@ public class OtRecordService {
                 .orElseThrow(() -> new IllegalArgumentException("Set your base salary before recording OT."));
         OtCalculator.Quote quote = OtCalculator.quote(
                 profile.getMonthlySalary(), range.start(), range.end(), shift, profile.resolvedWorkDaysPerWeek());
-        int number = nextNumber(userId);
         OtRecordEntity saved = records.save(new OtRecordEntity(
-                userId, chatId, number, workDate, range.start(), range.end(), quote.shift(),
+                userId, chatId, 0, workDate, range.start(), range.end(), quote.shift(),
                 quote.grossHours(), quote.breakHours(), quote.paidHours(), quote.hourlyRate(), quote.amount(),
                 Instant.now(clock)));
         MonthSummary month = monthSummary(userId, YearMonth.from(workDate));
@@ -81,10 +80,18 @@ public class OtRecordService {
         return LocalDate.now(clock);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public MonthSummary monthSummary(Long userId, YearMonth month) {
-        List<OtRecordEntity> rows = records.findByTelegramUserIdAndWorkDateBetweenOrderByWorkDateAscRecordNumberAsc(
-                userId, month.atDay(1), month.atEndOfMonth());
+        List<OtRecordEntity> rows = new java.util.ArrayList<>(
+                records.findByTelegramUserIdAndWorkDateBetweenOrderByWorkDateAscStartTimeAscIdAsc(
+                        userId, month.atDay(1), month.atEndOfMonth()));
+        rows.sort(java.util.Comparator
+                .comparing(OtRecordEntity::getWorkDate)
+                .thenComparing(OtRecordEntity::getStartTime)
+                .thenComparing(OtRecordEntity::getId, java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder())));
+        for (int i = 0; i < rows.size(); i++) {
+            rows.get(i).setRecordNumber(i + 1);
+        }
         BigDecimal hours = BigDecimal.ZERO.setScale(2);
         BigDecimal amount = BigDecimal.ZERO.setScale(2);
         for (OtRecordEntity row : rows) {
@@ -107,19 +114,21 @@ public class OtRecordService {
         return List.copyOf(months);
     }
 
-    @Transactional(readOnly = true)
-    public Optional<OtRecordEntity> findRecord(Long userId, int recordNumber) {
-        return records.findByTelegramUserIdAndRecordNumber(userId, recordNumber);
+    @Transactional
+    public Optional<OtRecordEntity> findRecord(Long userId, int recordNumber, YearMonth month) {
+        return monthSummary(userId, month).records().stream()
+                .filter(row -> row.getRecordNumber() == recordNumber)
+                .findFirst();
     }
 
     @Transactional
     public OtRecordEntity deleteRecord(Long userId, int recordNumber, YearMonth month) {
-        OtRecordEntity record = records.findByTelegramUserIdAndRecordNumber(userId, recordNumber)
+        YearMonth target = month == null ? currentMonth() : month;
+        OtRecordEntity record = findRecord(userId, recordNumber, target)
                 .orElseThrow(() -> new IllegalArgumentException("OT #" + recordNumber + " was not found."));
-        if (month != null && !YearMonth.from(record.getWorkDate()).equals(month)) {
-            throw new IllegalArgumentException("OT #" + recordNumber + " is not in " + month + ".");
-        }
         records.delete(record);
+        records.flush();
+        monthSummary(userId, target);
         return record;
     }
 
@@ -166,11 +175,6 @@ public class OtRecordService {
             return first <= second ? new int[] {first, second} : new int[] {second, first};
         }
         return new int[] {profile.getPayDay1()};
-    }
-
-    private int nextNumber(Long userId) {
-        Integer max = records.findMaxRecordNumber(userId);
-        return max == null ? 1 : max + 1;
     }
 
     private static void requireDay(Integer day) {
