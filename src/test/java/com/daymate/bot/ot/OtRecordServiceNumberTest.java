@@ -1,7 +1,9 @@
 package com.daymate.bot.ot;
 
 import com.daymate.bot.domain.OtShift;
+import com.daymate.bot.domain.OtTimeRange;
 import com.daymate.bot.entity.OtRecordEntity;
+import com.daymate.bot.entity.SalaryProfileEntity;
 import com.daymate.bot.repository.OtRecordRepository;
 import com.daymate.bot.repository.SalaryProfileRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -19,8 +21,10 @@ import java.time.YearMonth;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
@@ -88,6 +92,65 @@ class OtRecordServiceNumberTest {
         verify(records).delete(second);
         assertThat(first.getRecordNumber()).isEqualTo(1);
         assertThat(third.getRecordNumber()).isEqualTo(2);
+    }
+
+    @Test
+    void updateChangesTimeAndRateAndKeepsTheDate() {
+        LocalDate date = LocalDate.of(2026, 10, 9);
+        OtRecordEntity record = entry(4L, 2, date, LocalTime.of(8, 30));
+        when(salaries.findById(1L)).thenReturn(Optional.of(salary()));
+        when(records.findByTelegramUserIdAndWorkDateBetweenOrderByWorkDateAscStartTimeAscIdAsc(
+                eq(1L), any(), any())).thenReturn(new ArrayList<>(List.of(record)));
+
+        OtRecordService.SavedOt saved = service.update(1L, 1, YearMonth.of(2026, 10),
+                new OtTimeRange(LocalTime.of(9, 30), LocalTime.of(18, 30)), OtShift.HOLIDAY);
+
+        OtCalculator.Quote quote = OtCalculator.quote(new BigDecimal("400.00"),
+                LocalTime.of(9, 30), LocalTime.of(18, 30), OtShift.HOLIDAY, 5);
+        assertThat(saved.record()).isSameAs(record);
+        assertThat(record.getWorkDate()).isEqualTo(date);
+        assertThat(record.getStartTime()).isEqualTo(LocalTime.of(9, 30));
+        assertThat(record.getEndTime()).isEqualTo(LocalTime.of(18, 30));
+        assertThat(record.getShift()).isEqualTo(OtShift.HOLIDAY);
+        assertThat(record.getPaidHours()).isEqualByComparingTo(quote.paidHours());
+        assertThat(record.getHourlyRate()).isEqualByComparingTo(quote.hourlyRate());
+        assertThat(record.getAmount()).isEqualByComparingTo(quote.amount());
+        assertThat(record.getRecordNumber()).isEqualTo(1);
+        verify(records).save(record);
+    }
+
+    @Test
+    void earlierStartMovesTheRecordEarlierInTheMonth() {
+        LocalDate date = LocalDate.of(2026, 10, 10);
+        OtRecordEntity later = entry(2L, 9, date, LocalTime.of(16, 30));
+        OtRecordEntity earlier = entry(1L, 8, date, LocalTime.of(9, 0));
+        when(salaries.findById(1L)).thenReturn(Optional.of(salary()));
+        when(records.findByTelegramUserIdAndWorkDateBetweenOrderByWorkDateAscStartTimeAscIdAsc(
+                eq(1L), any(), any())).thenReturn(new ArrayList<>(List.of(later, earlier)));
+
+        service.update(1L, 2, YearMonth.of(2026, 10),
+                new OtTimeRange(LocalTime.of(7, 30), LocalTime.of(16, 30)), OtShift.WEEKEND);
+
+        assertThat(later.getWorkDate()).isEqualTo(date);
+        assertThat(later.getStartTime()).isEqualTo(LocalTime.of(7, 30));
+        assertThat(later.getRecordNumber()).isEqualTo(1);
+        assertThat(earlier.getRecordNumber()).isEqualTo(2);
+    }
+
+    @Test
+    void missingRecordIsRejected() {
+        when(salaries.findById(1L)).thenReturn(Optional.of(salary()));
+        when(records.findByTelegramUserIdAndWorkDateBetweenOrderByWorkDateAscStartTimeAscIdAsc(
+                eq(1L), any(), any())).thenReturn(new ArrayList<>());
+
+        assertThatThrownBy(() -> service.update(1L, 4, YearMonth.of(2026, 10),
+                new OtTimeRange(LocalTime.of(8, 30), LocalTime.of(17, 30)), OtShift.EVENING))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("not found");
+    }
+
+    private static SalaryProfileEntity salary() {
+        return new SalaryProfileEntity(1L, true, 2, 12, 26, 5, new BigDecimal("400.00"), Instant.EPOCH);
     }
 
     private static OtRecordEntity entry(Long id, int number, LocalDate date, LocalTime start) {

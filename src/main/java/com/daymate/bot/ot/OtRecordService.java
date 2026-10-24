@@ -132,6 +132,21 @@ public class OtRecordService {
         return record;
     }
 
+    @Transactional
+    public SavedOt update(Long userId, int recordNumber, YearMonth month, OtTimeRange range,
+                          com.daymate.bot.domain.OtShift shift) {
+        SalaryProfileEntity profile = salaries.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("Set your base salary before recording OT."));
+        YearMonth target = month == null ? currentMonth() : month;
+        OtRecordEntity record = findRecord(userId, recordNumber, target)
+                .orElseThrow(() -> new IllegalArgumentException("OT #" + recordNumber + " was not found."));
+        OtCalculator.Quote quote = OtCalculator.quote(
+                profile.getMonthlySalary(), range.start(), range.end(), shift, profile.resolvedWorkDaysPerWeek());
+        record.apply(range.start(), range.end(), quote);
+        records.save(record);
+        return new SavedOt(record, monthSummary(userId, target));
+    }
+
     public ZoneId zoneId() {
         return zoneId;
     }

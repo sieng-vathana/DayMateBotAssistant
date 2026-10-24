@@ -1,6 +1,7 @@
 package com.daymate.bot.entity;
 
 import com.daymate.bot.domain.OtShift;
+import com.daymate.bot.ot.OtCalculator;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -94,6 +95,17 @@ public class OtRecordEntity {
 
     public void setRecordNumber(int recordNumber) {
         this.recordNumber = recordNumber;
+    }
+
+    public void apply(LocalTime startTime, LocalTime endTime, OtCalculator.Quote quote) {
+        this.startTime = startTime;
+        this.endTime = endTime;
+        this.shift = quote.shift().name();
+        this.grossHours = quote.grossHours();
+        this.breakHours = quote.breakHours();
+        this.paidHours = quote.paidHours();
+        this.hourlyRate = quote.hourlyRate();
+        this.amount = quote.amount();
     }
 
     public LocalDate getWorkDate() {

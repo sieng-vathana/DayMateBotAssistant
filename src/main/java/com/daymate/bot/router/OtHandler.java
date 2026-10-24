@@ -5,6 +5,7 @@ import com.daymate.bot.domain.OtShift;
 import com.daymate.bot.domain.OtTimeRange;
 import com.daymate.bot.i18n.Texts;
 import com.daymate.bot.entity.ConversationStateEntity;
+import com.daymate.bot.entity.OtRecordEntity;
 import com.daymate.bot.entity.SalaryProfileEntity;
 import com.daymate.bot.ot.OtEntryParser;
 import com.daymate.bot.ot.OtFormatter;
@@ -200,6 +201,31 @@ public class OtHandler {
             confirmFromToken(chatId, userId, data.substring("ot:del:".length()));
             return true;
         }
+        if (data.startsWith("ot:edittime:")) {
+            telegram.answerCallback(callbackId, "Edit", false);
+            editTimeFromToken(chatId, userId, data);
+            return true;
+        }
+        if (data.startsWith("ot:editrate:")) {
+            telegram.answerCallback(callbackId, "Edit", false);
+            editRateFromToken(chatId, userId, data);
+            return true;
+        }
+        if (data.startsWith("ot:editback:")) {
+            telegram.answerCallback(callbackId, "List", false);
+            conversations.clear(chatId);
+            try {
+                showMonth(chatId, userId, YearMonth.parse(data.substring("ot:editback:".length())));
+            } catch (java.time.DateTimeException exception) {
+                telegram.sendHtml(chatId, formatter.invalidMonth(), null);
+            }
+            return true;
+        }
+        if (data.startsWith("ot:edit:")) {
+            telegram.answerCallback(callbackId, "Edit", false);
+            openEdit(chatId, userId, data.substring("ot:edit:".length()));
+            return true;
+        }
         if (data.startsWith("ot:go:")) {
             telegram.answerCallback(callbackId, "Saved", false);
             if (ot.salary(userId).isEmpty()) {
@@ -373,6 +399,11 @@ public class OtHandler {
     }
 
     private void acceptLine(ConversationStateEntity state, Long chatId, String text) {
+        Optional<EditTarget> editing = editTarget(state);
+        if (editing.isPresent()) {
+            acceptEditLine(state, chatId, text, editing.get());
+            return;
+        }
         Optional<OtEntryParser.ParsedOt> parsed = OtEntryParser.parse(text, ot.today());
         if (parsed.isPresent()) {
             saveParsed(chatId, state.getUserId(), parsed.get());
@@ -397,6 +428,45 @@ public class OtHandler {
         }
         boolean weekend = chosen != null && OtShift.forDate(chosen, workDays(state.getUserId())) == OtShift.WEEKEND;
         telegram.sendHtml(chatId, chosen == null ? formatter.invalidEntry() : formatter.invalidTimeForDay(weekend), null);
+    }
+
+    private void acceptEditLine(ConversationStateEntity state, Long chatId, String text, EditTarget target) {
+        Optional<OtRecordEntity> record = ot.findRecord(state.getUserId(), target.number(), target.month());
+        if (record.isEmpty()) {
+            conversations.clear(chatId);
+            telegram.sendMessage(chatId, formatter.recordNotFound(target.number()));
+            return;
+        }
+        Optional<OtEntryParser.TimeOnly> typed = OtEntryParser.parseTimeOnly(text);
+        if (typed.isEmpty()) {
+            Optional<OtEntryParser.ParsedOt> parsed = OtEntryParser.parse(text, ot.today());
+            if (parsed.isPresent()) {
+                typed = Optional.of(new OtEntryParser.TimeOnly(parsed.get().range(), parsed.get().shift()));
+            }
+        }
+        if (typed.isEmpty()) {
+            boolean weekend = OtShift.forDate(record.get().getWorkDate(), workDays(state.getUserId())) == OtShift.WEEKEND;
+            telegram.sendHtml(chatId, formatter.invalidTimeForDay(weekend), null);
+            return;
+        }
+        OtShift shift = typed.get().shift() == null ? record.get().getShift() : typed.get().shift();
+        applyEdit(chatId, state.getUserId(), target.month(), target.number(), typed.get().range(), shift);
+    }
+
+    private static Optional<EditTarget> editTarget(ConversationStateEntity state) {
+        String pending = state.getPendingRange();
+        if (pending == null || !pending.startsWith("e:")) {
+            return Optional.empty();
+        }
+        String[] parts = pending.split(":");
+        if (parts.length != 3) {
+            return Optional.empty();
+        }
+        try {
+            return Optional.of(new EditTarget(YearMonth.parse(parts[1]), Integer.parseInt(parts[2])));
+        } catch (IllegalArgumentException | java.time.DateTimeException exception) {
+            return Optional.empty();
+        }
     }
 
     private static LocalDate chosenDate(ConversationStateEntity state) {
@@ -458,6 +528,85 @@ public class OtHandler {
         }
     }
 
+    private void openEdit(Long chatId, Long userId, String token) {
+        String[] parts = token.split(":");
+        if (parts.length != 2) {
+            telegram.sendHtml(chatId, formatter.invalidEntry(), null);
+            return;
+        }
+        try {
+            showEdit(chatId, userId, YearMonth.parse(parts[0]), Integer.parseInt(parts[1]));
+        } catch (IllegalArgumentException | java.time.DateTimeException exception) {
+            telegram.sendHtml(chatId, formatter.invalidEntry(), null);
+        }
+    }
+
+    private void showEdit(Long chatId, Long userId, YearMonth month, int number) {
+        Optional<OtRecordEntity> record = ot.findRecord(userId, number, month);
+        if (record.isEmpty()) {
+            telegram.sendMessage(chatId, formatter.recordNotFound(number));
+            return;
+        }
+        ConversationStateEntity state = new ConversationStateEntity(
+                chatId, userId, ConversationStep.OT_TIME, Instant.now(clock));
+        state.setPendingRange("e:" + month + ":" + number);
+        conversations.save(state);
+        int days = workDays(userId);
+        boolean weekend = OtShift.forDate(record.get().getWorkDate(), days) == OtShift.WEEKEND;
+        telegram.sendHtml(chatId, formatter.editPrompt(record.get(), weekend), editKeyboard(record.get(), days));
+    }
+
+    private void editTimeFromToken(Long chatId, Long userId, String data) {
+        String[] parts = data.split(":");
+        if (parts.length != 7) {
+            telegram.sendHtml(chatId, formatter.invalidEntry(), null);
+            return;
+        }
+        try {
+            YearMonth month = YearMonth.parse(parts[2], DateTimeFormatter.ofPattern("yyyyMM"));
+            int number = Integer.parseInt(parts[3]);
+            LocalTime start = LocalTime.parse(parts[4], DateTimeFormatter.ofPattern("HHmm"));
+            LocalTime end = LocalTime.parse(parts[5], DateTimeFormatter.ofPattern("HHmm"));
+            applyEdit(chatId, userId, month, number, new OtTimeRange(start, end), shiftFromCode(parts[6]));
+        } catch (IllegalArgumentException | java.time.DateTimeException exception) {
+            telegram.sendHtml(chatId, formatter.invalidEntry(), null);
+        }
+    }
+
+    private void editRateFromToken(Long chatId, Long userId, String data) {
+        String[] parts = data.split(":");
+        if (parts.length != 5) {
+            telegram.sendHtml(chatId, formatter.invalidEntry(), null);
+            return;
+        }
+        try {
+            YearMonth month = YearMonth.parse(parts[2]);
+            int number = Integer.parseInt(parts[3]);
+            Optional<OtRecordEntity> record = ot.findRecord(userId, number, month);
+            if (record.isEmpty()) {
+                telegram.sendMessage(chatId, formatter.recordNotFound(number));
+                return;
+            }
+            applyEdit(chatId, userId, month, number,
+                    new OtTimeRange(record.get().getStartTime(), record.get().getEndTime()),
+                    shiftFromCode(parts[4]));
+        } catch (IllegalArgumentException | java.time.DateTimeException exception) {
+            telegram.sendHtml(chatId, formatter.invalidEntry(), null);
+        }
+    }
+
+    private void applyEdit(Long chatId, Long userId, YearMonth month, int number, OtTimeRange range, OtShift shift) {
+        try {
+            telegram.sendMessage(chatId, formatter.updated(ot.update(userId, number, month, range, shift)));
+            conversations.clear(chatId);
+        } catch (IllegalArgumentException exception) {
+            if (exception.getMessage() != null && exception.getMessage().contains("not found")) {
+                conversations.clear(chatId);
+            }
+            telegram.sendMessage(chatId, exception.getMessage());
+        }
+    }
+
     private void showMonth(Long chatId, Long userId, YearMonth month) {
         OtRecordService.MonthSummary summary = ot.monthSummary(userId, month);
         telegram.sendHtml(chatId, formatter.list(summary), listKeyboard(summary));
@@ -509,17 +658,12 @@ public class OtHandler {
 
     private List<List<Map<String, String>>> listKeyboard(OtRecordService.MonthSummary summary) {
         List<List<Map<String, String>>> rows = new ArrayList<>();
-        List<Map<String, String>> row = new ArrayList<>();
-        for (com.daymate.bot.entity.OtRecordEntity record : summary.records()) {
+        for (OtRecordEntity record : summary.records()) {
             YearMonth month = YearMonth.from(record.getWorkDate());
-            row.add(button("🗑 #" + record.getRecordNumber(), "ot:del:" + month + ":" + record.getRecordNumber()));
-            if (row.size() == 3) {
-                rows.add(row);
-                row = new ArrayList<>();
-            }
-        }
-        if (!row.isEmpty()) {
-            rows.add(row);
+            String token = month + ":" + record.getRecordNumber();
+            rows.add(List.of(
+                    button("✏️ #" + record.getRecordNumber(), "ot:edit:" + token),
+                    button("🗑 #" + record.getRecordNumber(), "ot:del:" + token)));
         }
         rows.add(List.of(button(Texts.t("History", "ប្រវត្តិ"), "ot:hist")));
         return rows;
@@ -588,6 +732,30 @@ public class OtHandler {
         return rows;
     }
 
+    private List<List<Map<String, String>>> editKeyboard(OtRecordEntity record, int workDays) {
+        LocalDate date = record.getWorkDate();
+        OtShift auto = OtShift.forDate(date, workDays);
+        boolean weekend = auto == OtShift.WEEKEND;
+        List<List<Map<String, String>>> rows = new ArrayList<>();
+        for (String[] range : SUGGESTED_RANGES) {
+            rows.add(List.of(editSlot(record, range[0], range[1], auto)));
+        }
+        if (!weekend) {
+            rows.add(List.of(editSlot(record, "08:30", "17:30", OtShift.HOLIDAY)));
+        }
+        List<Map<String, String>> rates = new ArrayList<>();
+        rates.add(editRate(record, OtShift.EVENING));
+        rates.add(editRate(record, OtShift.WEEKEND));
+        if (!weekend) {
+            rates.add(editRate(record, OtShift.HOLIDAY));
+        }
+        rows.add(rates);
+        rows.add(List.of(
+                button(Texts.t("← List", "← បញ្ជី"), "ot:editback:" + YearMonth.from(date)),
+                button(Texts.t("❌ Cancel", "❌ បោះបង់"), "ot:cancel")));
+        return rows;
+    }
+
     private List<List<Map<String, String>>> timeKeyboard(LocalDate date, int workDays) {
         OtShift auto = OtShift.forDate(date, workDays);
         List<List<Map<String, String>>> rows = new ArrayList<>();
@@ -607,12 +775,51 @@ public class OtHandler {
     }
 
     private Map<String, String> slot(LocalDate date, String start, String end, OtShift shift) {
-        String name = switch (shift) {
+        return button(start + "-" + end + " · " + shiftButtonName(shift), token(date, start, end, shift));
+    }
+
+    private Map<String, String> editSlot(OtRecordEntity record, String start, String end, OtShift shift) {
+        String data = "ot:edittime:" + YearMonth.from(record.getWorkDate()).format(DateTimeFormatter.ofPattern("yyyyMM"))
+                + ":" + record.getRecordNumber()
+                + ":" + start.replace(":", "")
+                + ":" + end.replace(":", "")
+                + ":" + shiftCode(shift);
+        return button(start + "-" + end + " · " + shiftButtonName(shift), data);
+    }
+
+    private Map<String, String> editRate(OtRecordEntity record, OtShift shift) {
+        String label = switch (shift) {
+            case HOLIDAY -> Texts.t("Holiday 100%", "ថ្ងៃឈប់ 100%");
+            case EVENING -> Texts.t("Evening 150%", "ល្ងាច 150%");
+            case WEEKEND -> Texts.t("Weekend 200%", "ចុងសប្តាហ៍ 200%");
+        };
+        String data = "ot:editrate:" + YearMonth.from(record.getWorkDate())
+                + ":" + record.getRecordNumber() + ":" + shiftCode(shift);
+        return button(label, data);
+    }
+
+    private static String shiftButtonName(OtShift shift) {
+        return switch (shift) {
             case HOLIDAY -> Texts.t("Holiday", "ថ្ងៃឈប់");
             case EVENING -> Texts.t("Evening", "ល្ងាច");
             case WEEKEND -> Texts.t("Weekend", "ចុងសប្តាហ៍");
         };
-        return button(start + "-" + end + " · " + name, token(date, start, end, shift));
+    }
+
+    private static String shiftCode(OtShift shift) {
+        return switch (shift) {
+            case HOLIDAY -> "H";
+            case WEEKEND -> "W";
+            case EVENING -> "E";
+        };
+    }
+
+    private static OtShift shiftFromCode(String code) {
+        return switch (code) {
+            case "H" -> OtShift.HOLIDAY;
+            case "W" -> OtShift.WEEKEND;
+            default -> OtShift.EVENING;
+        };
     }
 
     private static String token(LocalDate date, String start, String end, OtShift shift) {
@@ -647,5 +854,8 @@ public class OtHandler {
 
     private static Map<String, String> button(String text, String data) {
         return Map.of("text", text, "callback_data", data);
+    }
+
+    private record EditTarget(YearMonth month, int number) {
     }
 }

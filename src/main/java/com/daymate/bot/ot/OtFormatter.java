@@ -219,6 +219,31 @@ public class OtFormatter {
                 + monthLine(saved.month());
     }
 
+    public String updated(OtRecordService.SavedOt saved) {
+        OtRecordEntity record = saved.record();
+        return Texts.t("✅ Updated OT #", "✅ បានកែ OT #") + record.getRecordNumber() + "\n"
+                + line(record) + "\n"
+                + clockLine(record) + "\n\n"
+                + monthLine(saved.month());
+    }
+
+    public String editPrompt(OtRecordEntity record, boolean weekend) {
+        String sample = weekend
+                ? "<b>08:30-17:30</b>"
+                : "<b>08:30-17:30</b>\n<b>08:30-17:30 holiday</b>";
+        return Texts.t(
+                "✏️ Edit OT #" + record.getRecordNumber() + "\n"
+                        + Texts.day(record.getWorkDate()) + "\n"
+                        + clockLine(record) + "\n\n"
+                        + "The day stays the same. Tap a new time, or a rate to keep these hours.\n"
+                        + "Or type a time:\n" + sample,
+                "✏️ កែ OT #" + record.getRecordNumber() + "\n"
+                        + Texts.day(record.getWorkDate()) + "\n"
+                        + clockLine(record) + "\n\n"
+                        + "ថ្ងៃនៅដដែល។ ចុចម៉ោងថ្មី ឬអត្រា ដើម្បីរក្សាម៉ោងនេះ។\n"
+                        + "ឬវាយម៉ោង៖\n" + sample);
+    }
+
     public String list(OtRecordService.MonthSummary summary) {
         String title = Texts.t("📋 OT records — ", "📋 កំណត់ត្រា OT — ") + Texts.month(summary.month());
         if (summary.records().isEmpty()) {
@@ -232,8 +257,8 @@ public class OtFormatter {
         }
         text.append("\n\n").append(monthLabel(summary)).append(" · <b>").append(money(summary.amount())).append("</b>");
         text.append(Texts.t(
-                "\n\nTap 🗑 to delete one, or send /del 3.",
-                "\n\nចុច 🗑 ដើម្បីលុប ឬផ្ញើ /del 3។"));
+                "\n\nTap ✏️ to change one, 🗑 to delete, or send /del 3.",
+                "\n\nចុច ✏️ ដើម្បីកែ, 🗑 ដើម្បីលុប ឬផ្ញើ /del 3។"));
         return text.toString();
     }
 

@@ -59,6 +59,7 @@ public class PlannerFormatter {
                 /otlist or /ot-list — Overtime records for this month
                 /ot-history — Pick a month, or /ot-history 2026-10
                 /del 3 — Delete OT #3
+                From /otlist, tap ✏️ to change a record's time or rate. Numbers stay 1, 2, 3.
                 /salary — Hourly pay and base salary
                 /upcoming_salary — Next payday
                 The day before the ACLEDA payday that includes OT, DayMate sends the hours, OT pay, and total.
@@ -83,6 +84,7 @@ public class PlannerFormatter {
                 /otlist ឬ /ot-list — កំណត់ត្រាខែនេះ
                 /ot-history — ជ្រើសខែ ឬ /ot-history 2026-10
                 /del 3 — លុប OT #3
+                ពី /otlist ចុច ✏️ ដើម្បីប្តូរម៉ោង ឬអត្រា។ លេខនៅ 1, 2, 3។
                 /salary — ប្រាក់ម៉ោង និងប្រាក់ខែគោល
                 /upcoming_salary — ថ្ងៃបើកប្រាក់ខែបន្ទាប់
                 មួយថ្ងៃមុនថ្ងៃបើកប្រាក់ខែ ACLEDA ដែលមាន OT DayMate ផ្ញើម៉ោង ប្រាក់ OT និងសរុប។

@@ -33,6 +33,7 @@ class OtFormatterListTest {
         assertThat(row).doesNotContain("\n");
         assertThat(row.length()).isLessThanOrEqualTo(64);
         assertThat(text).contains("Oct 2026 so far: 7.50h · <b>$34.65</b>");
+        assertThat(text).contains("Tap ✏️ to change one, 🗑 to delete, or send /del 3.");
         assertThat(text).doesNotContain("\u3164");
         assertThat(text).doesNotContain("\u2003");
     }
