@@ -71,7 +71,7 @@ class AccessAdminAndSeedTest {
     @BeforeEach
     void setUp() {
         registry = new ModuleRegistry(List.of(
-                new OvertimeModule(otHandler, telegram),
+                new OvertimeModule(otHandler, null, telegram),
                 new TasksModule(tasks, conversationHandler, conversations, new PlannerFormatter(), telegram)));
     }
 

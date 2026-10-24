@@ -92,7 +92,7 @@ class CommandRouterTest {
                         && "overtime".equals(module.moduleId()));
         PlannerFormatter formatter = new PlannerFormatter();
         ModuleRegistry registry = new ModuleRegistry(List.of(
-                new OvertimeModule(otHandler, telegram),
+                new OvertimeModule(otHandler, null, telegram),
                 new TasksModule(tasks, conversationHandler, conversations, formatter, telegram),
                 new FinanceModule(telegram),
                 new NotesModule(noteService, conversations, telegram,

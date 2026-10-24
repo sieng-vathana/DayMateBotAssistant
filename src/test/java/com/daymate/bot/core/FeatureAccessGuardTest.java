@@ -68,7 +68,7 @@ class FeatureAccessGuardTest {
     @BeforeEach
     void setUp() {
         ModuleRegistry registry = new ModuleRegistry(List.of(
-                new OvertimeModule(otHandler, telegram),
+                new OvertimeModule(otHandler, null, telegram),
                 new TasksModule(tasks, conversationHandler, conversations, new PlannerFormatter(), telegram),
                 new NotesModule(noteService, conversations, telegram,
                         new NoteFormatter(ZoneId.of("Asia/Phnom_Penh")),
