@@ -61,6 +61,7 @@ public class PlannerFormatter {
                 /del 3 — Delete OT #3
                 /salary — Hourly pay and base salary
                 /upcoming_salary — Next payday
+                The day before the ACLEDA payday that includes OT, DayMate sends the hours, OT pay, and total.
                 /language — English or Khmer
                 /help — This message
 
@@ -84,6 +85,7 @@ public class PlannerFormatter {
                 /del 3 — លុប OT #3
                 /salary — ប្រាក់ម៉ោង និងប្រាក់ខែគោល
                 /upcoming_salary — ថ្ងៃបើកប្រាក់ខែបន្ទាប់
+                មួយថ្ងៃមុនថ្ងៃបើកប្រាក់ខែ ACLEDA ដែលមាន OT DayMate ផ្ញើម៉ោង ប្រាក់ OT និងសរុប។
                 /language — អង់គ្លេស ឬ ខ្មែរ
                 /help — សារនេះ
 

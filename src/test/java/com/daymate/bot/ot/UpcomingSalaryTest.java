@@ -96,6 +96,48 @@ class UpcomingSalaryTest {
         assertThat(text).contains("Total income: $200.00");
     }
 
+    @Test
+    void reminderIsDueTheDayBeforeTheOtPayday() {
+        when(salaries.findById(1L)).thenReturn(Optional.of(acleda()));
+        when(records.findByTelegramUserIdAndWorkDateBetweenOrderByWorkDateAscStartTimeAscIdAsc(
+                eq(1L), eq(LocalDate.of(2026, 10, 1)), eq(LocalDate.of(2026, 10, 31))))
+                .thenReturn(List.of(
+                        ot(new BigDecimal("7.50"), new BigDecimal("34.65")),
+                        ot(new BigDecimal("2.00"), new BigDecimal("6.92"))));
+
+        OtRecordService.PaydayReminder reminder = service.paydayReminder(1L, LocalDate.of(2026, 10, 25)).orElseThrow();
+
+        assertThat(reminder.payday()).isEqualTo(LocalDate.of(2026, 10, 26));
+        assertThat(reminder.base()).isEqualByComparingTo("200.00");
+        assertThat(reminder.otHours()).isEqualByComparingTo("9.50");
+        assertThat(reminder.ot()).isEqualByComparingTo("41.57");
+        assertThat(reminder.total()).isEqualByComparingTo("241.57");
+        assertThat(service.paydayReminder(1L, LocalDate.of(2026, 10, 24))).isEmpty();
+    }
+
+    @Test
+    void reminderIsSentOnlyOnce() {
+        SalaryProfileEntity profile = acleda();
+        profile.setPaydayReminderFor(LocalDate.of(2026, 10, 26));
+        when(salaries.findById(1L)).thenReturn(Optional.of(profile));
+
+        assertThat(service.paydayReminder(1L, LocalDate.of(2026, 10, 25))).isEmpty();
+    }
+
+    @Test
+    void reminderCopyIncludesHoursPayAndTotal() {
+        OtRecordService.PaydayReminder reminder = new OtRecordService.PaydayReminder(
+                LocalDate.of(2026, 10, 26), new BigDecimal("200.00"), new BigDecimal("39.50"), new BigDecimal("151.25"));
+
+        String text = new OtFormatter().paydayReminder(reminder);
+
+        assertThat(text).contains("Payday tomorrow, Mon, 26 Oct 2026");
+        assertThat(text).contains("OT: 39.50h · $151.25");
+        assertThat(text).contains("Base: $200.00");
+        assertThat(text).contains("Total income: $351.25");
+        assertThat(text).contains("/otlist");
+    }
+
     private static SalaryProfileEntity acleda() {
         return new SalaryProfileEntity(1L, true, 2, 12, 26, 5, new BigDecimal("400.00"), Instant.EPOCH);
     }

@@ -179,6 +179,17 @@ public class OtFormatter {
         text.append(Texts.t("\nTotal income: ", "\nចំណូលសរុប: ")).append(money(payday.total()));
     }
 
+    public String paydayReminder(OtRecordService.PaydayReminder reminder) {
+        String figures = "OT: " + hours(reminder.otHours()) + " · " + money(reminder.ot()) + "\n"
+                + Texts.t("Base: ", "ប្រាក់ខែគោល: ") + money(reminder.base()) + "\n"
+                + Texts.t("Total income: ", "ចំណូលសរុប: ") + money(reminder.total());
+        return Texts.t(
+                "Payday tomorrow, " + Texts.day(reminder.payday()) + "\n" + figures
+                        + "\n\nSend /otlist if a record needs a change.",
+                "ថ្ងៃបើកប្រាក់ខែស្អែក " + Texts.day(reminder.payday()) + "\n" + figures
+                        + "\n\nផ្ញើ /otlist ប្រសិនបើកំណត់ត្រាត្រូវកែ។");
+    }
+
     public String salarySummary(SalaryProfileEntity profile) {
         return salarySaved(profile) + "\n\n" + Texts.t(
                 "Send /ot to record overtime, or tap Change to update this.",

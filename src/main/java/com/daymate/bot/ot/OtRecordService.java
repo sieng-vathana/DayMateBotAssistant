@@ -169,6 +169,48 @@ public class OtRecordService {
         return new UpcomingSalary(profile, hourly.setScale(2, java.math.RoundingMode.HALF_UP), pays);
     }
 
+    @Transactional(readOnly = true)
+    public List<SalaryProfileEntity> acledaProfiles() {
+        return salaries.findByAcledaEmployeeTrue();
+    }
+
+    @Transactional(readOnly = true)
+    public Long chatIdFor(Long userId) {
+        return records.findFirstByTelegramUserIdOrderByIdDesc(userId)
+                .map(OtRecordEntity::getChatId)
+                .orElse(userId);
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<PaydayReminder> paydayReminder(Long userId, LocalDate today) {
+        SalaryProfileEntity profile = salaries.findById(userId).orElse(null);
+        if (profile == null || !profile.isAcledaEmployee() || profile.getPayTimes() < 2) {
+            return Optional.empty();
+        }
+        LocalDate payday = lastPayday(profile, YearMonth.from(today.plusDays(1)));
+        if (!today.plusDays(1).equals(payday) || payday.equals(profile.getPaydayReminderFor())) {
+            return Optional.empty();
+        }
+        BigDecimal base = profile.getMonthlySalary().divide(
+                BigDecimal.valueOf(profile.getPayTimes()), 2, java.math.RoundingMode.HALF_UP);
+        OtTotal ot = otPaid(userId, YearMonth.from(payday));
+        return Optional.of(new PaydayReminder(payday, base, ot.hours(), ot.amount()));
+    }
+
+    @Transactional
+    public void markPaydayReminderSent(Long userId, LocalDate payday) {
+        salaries.findById(userId).ifPresent(profile -> {
+            profile.setPaydayReminderFor(payday);
+            salaries.save(profile);
+        });
+    }
+
+    private LocalDate lastPayday(SalaryProfileEntity profile, YearMonth month) {
+        int[] days = payDays(profile);
+        int last = days[days.length - 1];
+        return month.atDay(Math.min(last, month.lengthOfMonth()));
+    }
+
     private boolean includesOvertime(SalaryProfileEntity profile, LocalDate date) {
         if (!profile.isAcledaEmployee() || profile.getPayTimes() < 2) {
             return false;
@@ -213,6 +255,12 @@ public class OtRecordService {
     }
 
     public record MonthSummary(YearMonth month, List<OtRecordEntity> records, BigDecimal paidHours, BigDecimal amount) {
+    }
+
+    public record PaydayReminder(LocalDate payday, BigDecimal base, BigDecimal otHours, BigDecimal ot) {
+        public BigDecimal total() {
+            return base.add(ot);
+        }
     }
 
     public record Payday(LocalDate date, BigDecimal amount, BigDecimal otHours, BigDecimal ot) {

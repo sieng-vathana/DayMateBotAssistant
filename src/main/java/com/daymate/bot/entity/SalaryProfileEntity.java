@@ -7,6 +7,7 @@ import jakarta.persistence.Table;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 
 @Entity
 @Table(name = "salary_profiles")
@@ -31,6 +32,8 @@ public class SalaryProfileEntity {
     private BigDecimal monthlySalary;
 
     private Instant updatedAt;
+
+    private LocalDate paydayReminderFor;
 
     protected SalaryProfileEntity() {
     }
@@ -75,6 +78,14 @@ public class SalaryProfileEntity {
             return 5;
         }
         return acledaEmployee ? 5 : 6;
+    }
+
+    public LocalDate getPaydayReminderFor() {
+        return paydayReminderFor;
+    }
+
+    public void setPaydayReminderFor(LocalDate paydayReminderFor) {
+        this.paydayReminderFor = paydayReminderFor;
     }
 
     public BigDecimal getMonthlySalary() {

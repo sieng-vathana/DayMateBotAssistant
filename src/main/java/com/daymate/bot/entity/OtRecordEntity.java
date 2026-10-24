@@ -84,6 +84,10 @@ public class OtRecordEntity {
         return id;
     }
 
+    public Long getChatId() {
+        return chatId;
+    }
+
     public int getRecordNumber() {
         return recordNumber;
     }
