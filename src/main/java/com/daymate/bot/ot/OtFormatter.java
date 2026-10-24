@@ -18,12 +18,12 @@ public class OtFormatter {
         int day = today.getDayOfMonth();
         return Texts.t(
                 "Record OT for " + month + ". Day comes first.\n\n"
-                        + "One line saves it:\n<b>" + day + " 16:30-17:30</b>\n<b>" + day + " 16:30-17:30 holiday</b>\n\n"
+                        + "One line saves it:\n<b>" + day + " 08:30-17:30</b>\n<b>" + day + " 08:30-17:30 holiday</b>\n\n"
                         + "Weekday = Evening 150%. Sat/Sun = Weekend 200%.\n"
                         + "Add holiday only for Holiday 100%.\n\n"
                         + "Or tap a day, then one time. That second tap saves it.",
                 "កត់ម៉ោងបន្ថែមសម្រាប់ " + month + "។ ថ្ងៃមុនគេ។\n\n"
-                        + "សរសេរមួយជួររួចផ្ញើ៖\n<b>" + day + " 16:30-17:30</b>\n<b>" + day + " 16:30-17:30 holiday</b>\n\n"
+                        + "សរសេរមួយជួររួចផ្ញើ៖\n<b>" + day + " 08:30-17:30</b>\n<b>" + day + " 08:30-17:30 holiday</b>\n\n"
                         + "ថ្ងៃធ្វើការ = ល្ងាច 150%។ សៅរ៍/អាទិត្យ = ចុងសប្តាហ៍ 200%។\n"
                         + "បន្ថែម holiday សម្រាប់ថ្ងៃឈប់សម្រាក 100%។\n\n"
                         + "ឬចុចថ្ងៃ បន្ទាប់មកចុចម៉ោងមួយ។ ការចុចនោះរក្សាទុកភ្លាម។");
@@ -31,22 +31,29 @@ public class OtFormatter {
 
     public String invalidEntry() {
         return Texts.t(
-                "I couldn't read that. Day first, then the time.\nExample: <b>24 16:30-17:30</b> or <b>24 16:30-17:30 holiday</b>.",
-                "ខ្ញុំអានមិនបានទេ។ ថ្ងៃមុន បន្ទាប់មកម៉ោង។\nឧទាហរណ៍៖ <b>24 16:30-17:30</b> ឬ <b>24 16:30-17:30 holiday</b>។");
+                "I couldn't read that. Day first, then the time.\nExample: <b>24 08:30-17:30</b> or <b>24 08:30-17:30 holiday</b>.",
+                "ខ្ញុំអានមិនបានទេ។ ថ្ងៃមុន បន្ទាប់មកម៉ោង។\nឧទាហរណ៍៖ <b>24 08:30-17:30</b> ឬ <b>24 08:30-17:30 holiday</b>។");
     }
 
-    public String dayChosen(java.time.LocalDate date) {
+    public String dayChosen(java.time.LocalDate date, boolean weekend) {
+        String sample = weekend
+                ? "<b>08:30-17:30</b>"
+                : "<b>08:30-17:30</b>\n<b>08:30-17:30 holiday</b>";
         return Texts.t(
-                "📅 " + Texts.day(date) + "\n\nTap a time, or type your own for this day:\n"
-                        + "<b>13:00-19:00</b>\n<b>13:00-19:00 holiday</b>",
-                "📅 " + Texts.day(date) + "\n\nចុចម៉ោង ឬវាយម៉ោងផ្ទាល់សម្រាប់ថ្ងៃនេះ៖\n"
-                        + "<b>13:00-19:00</b>\n<b>13:00-19:00 holiday</b>");
+                "📅 " + Texts.day(date) + "\n\nTap a time, or type your own for this day:\n" + sample,
+                "📅 " + Texts.day(date) + "\n\nចុចម៉ោង ឬវាយម៉ោងផ្ទាល់សម្រាប់ថ្ងៃនេះ៖\n" + sample);
     }
 
-    public String invalidTimeForDay() {
+    public String invalidTimeForDay(boolean weekend) {
+        String sample = weekend
+                ? "<b>08:30-17:30</b>"
+                : "<b>08:30-17:30</b> or <b>08:30-17:30 holiday</b>";
+        String khmer = weekend
+                ? "<b>08:30-17:30</b>"
+                : "<b>08:30-17:30</b> ឬ <b>08:30-17:30 holiday</b>";
         return Texts.t(
-                "Type the time for this day. Example: <b>13:00-19:00</b> or <b>13:00-19:00 holiday</b>.",
-                "វាយម៉ោងសម្រាប់ថ្ងៃនេះ។ ឧទាហរណ៍៖ <b>13:00-19:00</b> ឬ <b>13:00-19:00 holiday</b>។");
+                "Type the time for this day. Example: " + sample + ".",
+                "វាយម៉ោងសម្រាប់ថ្ងៃនេះ។ ឧទាហរណ៍៖ " + khmer + "។");
     }
 
     public String acledaPrompt() {

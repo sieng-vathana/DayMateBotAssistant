@@ -28,6 +28,12 @@ import java.util.Optional;
 
 @Component
 public class OtHandler {
+    private static final String[][] SUGGESTED_RANGES = {
+            {"07:30", "16:30"},
+            {"08:30", "17:30"},
+            {"09:30", "18:30"}
+    };
+
     private final ConversationService conversations;
     private final OtRecordService ot;
     private final OtFormatter formatter;
@@ -389,7 +395,8 @@ public class OtHandler {
             showDay(chatId, state.getUserId(), day.get());
             return;
         }
-        telegram.sendHtml(chatId, chosen == null ? formatter.invalidEntry() : formatter.invalidTimeForDay(), null);
+        boolean weekend = chosen != null && OtShift.forDate(chosen, workDays(state.getUserId())) == OtShift.WEEKEND;
+        telegram.sendHtml(chatId, chosen == null ? formatter.invalidEntry() : formatter.invalidTimeForDay(weekend), null);
     }
 
     private static LocalDate chosenDate(ConversationStateEntity state) {
@@ -413,7 +420,9 @@ public class OtHandler {
                 chatId, userId, ConversationStep.OT_TIME, Instant.now(clock));
         state.setPendingRange(date.toString());
         conversations.save(state);
-        telegram.sendHtml(chatId, formatter.dayChosen(date), timeKeyboard(date, workDays(userId)));
+        int days = workDays(userId);
+        boolean weekend = OtShift.forDate(date, days) == OtShift.WEEKEND;
+        telegram.sendHtml(chatId, formatter.dayChosen(date, weekend), timeKeyboard(date, days));
     }
 
     private void saveParsed(Long chatId, Long userId, OtEntryParser.ParsedOt parsed) {
@@ -555,12 +564,11 @@ public class OtHandler {
 
     private List<List<Map<String, String>>> homeKeyboard(LocalDate today, int workDays) {
         List<List<Map<String, String>>> rows = new ArrayList<>();
-        rows.add(List.of(quick(today, "16:30", "17:30", workDays,
-                Texts.t("Today 16:30-17:30", "ថ្ងៃនេះ 16:30-17:30"))));
-        rows.add(List.of(quick(today, "16:30", "18:30", workDays,
-                Texts.t("Today 16:30-18:30", "ថ្ងៃនេះ 16:30-18:30"))));
-        rows.add(List.of(quick(today, "13:00", "19:00", workDays,
-                Texts.t("Today 13:00-19:00", "ថ្ងៃនេះ 13:00-19:00"))));
+        for (String[] range : SUGGESTED_RANGES) {
+            String label = range[0] + "-" + range[1];
+            rows.add(List.of(quick(today, range[0], range[1], workDays,
+                    Texts.t("Today " + label, "ថ្ងៃនេះ " + label))));
+        }
         YearMonth month = YearMonth.from(today);
         List<Map<String, String>> row = new ArrayList<>();
         for (int day = 1; day <= month.lengthOfMonth(); day++) {
@@ -581,15 +589,16 @@ public class OtHandler {
 
     private List<List<Map<String, String>>> timeKeyboard(LocalDate date, int workDays) {
         OtShift auto = OtShift.forDate(date, workDays);
-        return List.of(
-                List.of(slot(date, "16:30", "17:30", auto)),
-                List.of(slot(date, "16:30", "18:30", auto)),
-                List.of(slot(date, "09:00", "17:30", auto)),
-                List.of(slot(date, "13:00", "19:00", auto)),
-                List.of(slot(date, "08:00", "17:00", auto)),
-                List.of(slot(date, "08:30", "17:30", OtShift.HOLIDAY)),
-                List.of(button(Texts.t("Another day", "ថ្ងៃផ្សេង"), "ot:home"),
-                        button(Texts.t("❌ Cancel", "❌ បោះបង់"), "ot:cancel")));
+        List<List<Map<String, String>>> rows = new ArrayList<>();
+        for (String[] range : SUGGESTED_RANGES) {
+            rows.add(List.of(slot(date, range[0], range[1], auto)));
+        }
+        if (auto != OtShift.WEEKEND) {
+            rows.add(List.of(slot(date, "08:30", "17:30", OtShift.HOLIDAY)));
+        }
+        rows.add(List.of(button(Texts.t("Another day", "ថ្ងៃផ្សេង"), "ot:home"),
+                button(Texts.t("❌ Cancel", "❌ បោះបង់"), "ot:cancel")));
+        return rows;
     }
 
     private Map<String, String> quick(LocalDate date, String start, String end, int workDays, String label) {

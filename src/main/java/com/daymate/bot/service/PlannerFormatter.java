@@ -65,8 +65,8 @@ public class PlannerFormatter {
                 /help — This message
 
                 /ot saves in one line. Day first:
-                24 16:30-17:30
-                24 16:30-17:30 holiday
+                24 08:30-17:30
+                24 08:30-17:30 holiday
 
                 Weekday = Evening 150%. Sat/Sun = Weekend 200%.
                 Add holiday for Holiday 100%.
@@ -88,8 +88,8 @@ public class PlannerFormatter {
                 /help — សារនេះ
 
                 /ot រក្សាទុកក្នុងមួយជួរ។ ថ្ងៃមុនគេ៖
-                24 16:30-17:30
-                24 16:30-17:30 holiday
+                24 08:30-17:30
+                24 08:30-17:30 holiday
 
                 ថ្ងៃធ្វើការ = ល្ងាច 150%។ សៅរ៍/អាទិត្យ = ចុងសប្តាហ៍ 200%។
                 បន្ថែម holiday សម្រាប់ថ្ងៃឈប់សម្រាក 100%។
