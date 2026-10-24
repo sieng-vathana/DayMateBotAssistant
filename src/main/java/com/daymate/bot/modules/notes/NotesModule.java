@@ -90,7 +90,7 @@ public class NotesModule implements BotModule {
 
     @Override
     public List<String> commands() {
-        return List.of("/note", "/notes", "/search", "/pinned");
+        return List.of("/note", "/notes", "/my-notes", "/mynotes", "/my_notes", "/search", "/pinned");
     }
 
     @Override
@@ -128,7 +128,7 @@ public class NotesModule implements BotModule {
     public String featureForCommand(String command) {
         return switch (normalize(command)) {
             case "/note" -> CREATE;
-            case "/notes" -> VIEW;
+            case "/notes", "/my-notes", "/mynotes", "/my_notes" -> VIEW;
             case "/search" -> SEARCH;
             case "/pinned" -> PIN;
             default -> null;
@@ -192,7 +192,7 @@ public class NotesModule implements BotModule {
     public String commandForMenuAction(String action) {
         return switch (action) {
             case "new" -> "/note";
-            case "list" -> "/notes";
+            case "list" -> "/my-notes";
             case "search" -> "/search";
             case "pinned" -> "/pinned";
             default -> null;
@@ -209,6 +209,7 @@ public class NotesModule implements BotModule {
         try {
             switch (normalize(command)) {
                 case "/notes" -> renderMenu(context);
+                case "/my-notes", "/mynotes", "/my_notes" -> showList(context, 0);
                 case "/note" -> {
                     if (arguments == null || arguments.isBlank()) {
                         startContent(context);

@@ -10,6 +10,7 @@ import com.daymate.bot.modules.notes.NotesModule;
 import com.daymate.bot.service.ConversationService;
 import com.daymate.bot.telegram.TelegramApiClient;
 import org.junit.jupiter.api.BeforeEach;
+import org.springframework.data.domain.Page;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -62,9 +63,12 @@ class NotesModuleTest {
         assertThat(module.displayName()).isEqualTo("📌 Notes");
         assertThat(module.displayOrder()).isEqualTo(40);
         assertThat(module.enabledByDefault()).isTrue();
-        assertThat(module.commands()).containsExactly("/note", "/notes", "/search", "/pinned");
+        assertThat(module.commands()).containsExactly(
+                "/note", "/notes", "/my-notes", "/mynotes", "/my_notes", "/search", "/pinned");
         assertThat(module.features()).allMatch(feature -> feature.openByDefault());
-        assertThat(module.commandForMenuAction("list")).isEqualTo("/notes");
+        assertThat(module.featureForCommand("/my-notes")).isEqualTo(NotesModule.VIEW);
+        assertThat(module.featureForCommand("/my_notes")).isEqualTo(NotesModule.VIEW);
+        assertThat(module.commandForMenuAction("list")).isEqualTo("/my-notes");
         assertThat(module.commandForMenuAction("search")).isEqualTo("/search");
     }
 
@@ -80,6 +84,15 @@ class NotesModuleTest {
         assertThat(module.featureForCallback("note:tags:1")).isEqualTo(NotesModule.SEARCH);
         assertThat(module.featureForCallback("note:tag:1:0")).isEqualTo(NotesModule.SEARCH);
         assertThat(module.featureForState(state(ConversationStep.NOTES_WAITING_CONTENT))).isEqualTo(NotesModule.CREATE);
+    }
+
+    @Test
+    void myNotesCommandOpensTheSavedList() {
+        when(noteService.list(1L, 0)).thenReturn(Page.empty());
+
+        module.handleCommand(context(null, Set.of(NotesModule.VIEW), null, null), "/my-notes", "extra");
+
+        verify(noteService).list(1L, 0);
     }
 
     @Test

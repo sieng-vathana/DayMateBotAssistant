@@ -34,8 +34,9 @@ class PlannerFormatterTest {
         String text = formatter.withNotesCommands(formatter.welcome());
 
         assertThat(text).contains("/upcoming_salary — Next payday");
-        assertThat(text).contains("/notes — Notes menu");
         assertThat(text).contains("/note — Save a note");
+        assertThat(text).contains("/notes — Notes menu");
+        assertThat(text).contains("/my-notes — My saved notes");
         assertThat(text).contains("/search — Search notes");
         assertThat(text).contains("/pinned — Pinned notes");
         assertThat(text.indexOf("/pinned — Pinned notes")).isLessThan(text.indexOf("/language — Switch language"));

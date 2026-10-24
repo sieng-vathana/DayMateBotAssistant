@@ -53,12 +53,14 @@ public class PlannerFormatter {
 
     public String withNotesCommands(String text) {
         String block = Texts.t("""
-                /notes — Notes menu
                 /note — Save a note
+                /notes — Notes menu
+                /my-notes — My saved notes
                 /search — Search notes
                 /pinned — Pinned notes""", """
-                /notes — ម៉ឺនុយកំណត់ចំណាំ
                 /note — រក្សាកំណត់ចំណាំ
+                /notes — ម៉ឺនុយកំណត់ចំណាំ
+                /my-notes — កំណត់ចំណាំរបស់ខ្ញុំ
                 /search — ស្វែងរកកំណត់ចំណាំ
                 /pinned — កំណត់ចំណាំដែលខ្ទាស់""");
         int at = text.indexOf("/language");

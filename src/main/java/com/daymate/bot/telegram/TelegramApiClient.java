@@ -76,6 +76,10 @@ public class TelegramApiClient {
         call("editMessageText", payload, Duration.ofSeconds(15));
     }
 
+    public void setMyCommands(List<Map<String, String>> commands) {
+        call("setMyCommands", Map.of("commands", commands), Duration.ofSeconds(15));
+    }
+
     public void answerCallback(String callbackQueryId, String text, boolean showAlert) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("callback_query_id", callbackQueryId);

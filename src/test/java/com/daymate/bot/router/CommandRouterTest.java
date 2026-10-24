@@ -134,6 +134,7 @@ class CommandRouterTest {
         verify(telegram).sendMessage(eq(1L), text.capture(), keyboard.capture());
         assertThat(text.getValue()).contains("/note — Save a note");
         assertThat(text.getValue()).contains("/notes — Notes menu");
+        assertThat(text.getValue()).contains("/my-notes — My saved notes");
         assertThat(keyboard.getValue())
                 .extracting(row -> row.get(0).get("text"))
                 .containsExactly(
