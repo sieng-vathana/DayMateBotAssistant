@@ -12,6 +12,8 @@ import java.time.format.DateTimeFormatter;
 @Component
 public class OtFormatter {
     private static final DateTimeFormatter CLOCK = DateTimeFormatter.ofPattern("HH:mm");
+    /** Full-width and blank in Telegram. One trailing line stretches the bubble; record lines stay plain. */
+    private static final String BUBBLE_PAD = "\u3164".repeat(56);
 
     public String oneLinePrompt(java.time.LocalDate today) {
         String month = Texts.monthLong(today);
@@ -196,9 +198,9 @@ public class OtFormatter {
     public String list(OtRecordService.MonthSummary summary) {
         String title = Texts.t("📋 OT records — ", "📋 កំណត់ត្រា OT — ") + Texts.month(summary.month());
         if (summary.records().isEmpty()) {
-            return title + Texts.t(
+            return widen(title + Texts.t(
                     "\n\nNo OT yet this month. Send /ot to add one.",
-                    "\n\nមិនទាន់មានម៉ោងបន្ថែមខែនេះទេ។ ផ្ញើ /ot ដើម្បីបន្ថែម។");
+                    "\n\nមិនទាន់មានម៉ោងបន្ថែមខែនេះទេ។ ផ្ញើ /ot ដើម្បីបន្ថែម។"));
         }
         StringBuilder text = new StringBuilder(title);
         for (OtRecordEntity record : summary.records()) {
@@ -211,7 +213,11 @@ public class OtFormatter {
         text.append(Texts.t(
                 "\n\nTap 🗑 to delete one, or send /del 3.",
                 "\n\nចុច 🗑 ដើម្បីលុប ឬផ្ញើ /del 3។"));
-        return text.toString();
+        return widen(text.toString());
+    }
+
+    private static String widen(String text) {
+        return text + "\n" + BUBBLE_PAD;
     }
 
     public String history(java.util.List<java.time.YearMonth> months) {
