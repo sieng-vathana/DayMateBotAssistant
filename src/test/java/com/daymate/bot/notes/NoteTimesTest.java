@@ -1,8 +1,10 @@
 package com.daymate.bot.notes;
 
+import com.daymate.bot.entity.NoteEntity;
 import org.junit.jupiter.api.Test;
 
 import java.time.Clock;
+import java.util.List;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -53,5 +55,23 @@ class NoteTimesTest {
 
         assertThat(formatter.formatDate(instant)).isEqualTo("25 Oct 2026");
         assertThat(formatter.formatTime(instant)).isEqualTo("8:00 PM");
+    }
+
+    @Test
+    void noteListStretchesEachRowOnOneLine() {
+        NoteFormatter formatter = new NoteFormatter(PHNOM_PENH);
+        NoteEntity shortNote = new NoteEntity(1L, "Milk", "Milk", false, Instant.parse("2026-10-24T01:00:00Z"));
+        NoteEntity longNote = new NoteEntity(1L, "A".repeat(80), "A".repeat(80), true, Instant.parse("2026-10-24T01:00:00Z"));
+
+        String text = formatter.myNotes(0, 2, List.of(shortNote, longNote));
+        String shortRow = text.lines().filter(line -> line.startsWith("1. ")).findFirst().orElseThrow();
+        String longRow = text.lines().filter(line -> line.startsWith("2. ")).findFirst().orElseThrow();
+
+        assertThat(shortRow).contains("Milk").endsWith("24 Oct 2026");
+        assertThat(shortRow).doesNotContain("\u3164").doesNotContain("\u2800").doesNotContain("\u2003");
+        assertThat(shortRow.length()).isEqualTo(60);
+        assertThat(longRow).endsWith("24 Oct 2026");
+        assertThat(longRow).doesNotContain("A".repeat(50));
+        assertThat(longRow.indexOf('\n')).isNegative();
     }
 }

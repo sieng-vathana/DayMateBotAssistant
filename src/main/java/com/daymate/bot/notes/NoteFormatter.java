@@ -15,6 +15,8 @@ import java.util.Locale;
 
 @Component
 public class NoteFormatter {
+    /** This phone wraps a text bubble past about 60 columns. */
+    private static final int LIST_WIDTH = 60;
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH);
 
     private final ZoneId zone;
@@ -145,20 +147,69 @@ public class NoteFormatter {
         return hour12 + ":" + String.format(Locale.ENGLISH, "%02d", zoned.getMinute()) + " " + suffix;
     }
 
-    private static String page(String heading, String count, int pageNumber, List<NoteEntity> notes) {
+    private String page(String heading, String count, int pageNumber, List<NoteEntity> notes) {
         StringBuilder text = new StringBuilder();
         text.append(heading).append("\n\n").append(count);
         int index = 0;
         for (NoteEntity note : notes) {
             int number = pageNumber * NoteService.PAGE_SIZE + index + 1;
-            text.append("\n")
-                    .append(number)
-                    .append(". ")
-                    .append(note.isPinned() ? "📌 " : "📝 ")
-                    .append(preview(note.getTitle(), 60));
+            text.append("\n").append(listLine(number, note));
             index++;
         }
         return text.toString();
+    }
+
+    private String listLine(int number, NoteEntity note) {
+        String date = formatDate(note.getCreatedAt());
+        String prefix = number + ". " + (note.isPinned() ? "📌 " : "📝 ");
+        int titleRoom = LIST_WIDTH - displayWidth(prefix) - displayWidth(date) - 1;
+        if (titleRoom < 1) {
+            titleRoom = 1;
+        }
+        String title = cutToWidth(note.getTitle(), titleRoom);
+        String body = prefix + title;
+        int spaces = LIST_WIDTH - displayWidth(body) - displayWidth(date);
+        if (spaces < 1) {
+            spaces = 1;
+        }
+        return body + " ".repeat(spaces) + date;
+    }
+
+    private static String cutToWidth(String value, int maxWidth) {
+        String text = value == null ? "" : value.strip();
+        if (displayWidth(text) <= maxWidth) {
+            return text;
+        }
+        StringBuilder kept = new StringBuilder();
+        int width = 0;
+        for (int offset = 0; offset < text.length(); ) {
+            int codePoint = text.codePointAt(offset);
+            int widthOfPoint = columnWidth(codePoint);
+            if (width + widthOfPoint > maxWidth) {
+                break;
+            }
+            kept.appendCodePoint(codePoint);
+            width += widthOfPoint;
+            offset += Character.charCount(codePoint);
+        }
+        return kept.toString();
+    }
+
+    private static int displayWidth(String value) {
+        int width = 0;
+        for (int offset = 0; offset < value.length(); ) {
+            int codePoint = value.codePointAt(offset);
+            width += columnWidth(codePoint);
+            offset += Character.charCount(codePoint);
+        }
+        return width;
+    }
+
+    private static int columnWidth(int codePoint) {
+        if (codePoint <= 0x007E) {
+            return 1;
+        }
+        return 2;
     }
 
     private static String countNotes(long total) {

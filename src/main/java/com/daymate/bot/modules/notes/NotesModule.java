@@ -631,7 +631,7 @@ public class NotesModule implements BotModule {
             }
             int number = page.getNumber() * NoteService.PAGE_SIZE + index + 1;
             String label = number + ". " + (note.isPinned() ? "📌 " : "📝 ")
-                    + NoteFormatter.preview(note.getTitle(), 24);
+                    + NoteFormatter.preview(note.getTitle(), 40);
             rows.add(List.of(button(label, openData(note.getId(), originPrefix + page.getNumber()))));
             index++;
         }
