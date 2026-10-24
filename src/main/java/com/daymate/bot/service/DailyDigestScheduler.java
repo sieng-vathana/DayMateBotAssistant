@@ -1,6 +1,9 @@
 package com.daymate.bot.service;
 
 import com.daymate.bot.config.BotProperties;
+import com.daymate.bot.core.access.AccessDecision;
+import com.daymate.bot.core.access.FeatureAccessGuard;
+import com.daymate.bot.modules.task.TasksModule;
 import com.daymate.bot.save.TaskSaveService;
 import com.daymate.bot.telegram.InlineKeyboards;
 import com.daymate.bot.telegram.TelegramApiClient;
@@ -17,13 +20,15 @@ public class DailyDigestScheduler {
     private final TaskSaveService tasks;
     private final PlannerFormatter formatter;
     private final TelegramApiClient telegram;
+    private final FeatureAccessGuard guard;
 
     public DailyDigestScheduler(BotProperties properties, TaskSaveService tasks,
-                                PlannerFormatter formatter, TelegramApiClient telegram) {
+                                PlannerFormatter formatter, TelegramApiClient telegram, FeatureAccessGuard guard) {
         this.properties = properties;
         this.tasks = tasks;
         this.formatter = formatter;
         this.telegram = telegram;
+        this.guard = guard;
     }
 
     @Scheduled(cron = "${telegram.bot.digest-cron:0 0 8 * * *}", zone = "${telegram.bot.timezone:Asia/Phnom_Penh}")
@@ -34,6 +39,9 @@ public class DailyDigestScheduler {
         for (Object[] userChat : tasks.distinctUserChats()) {
             Long userId = (Long) userChat[0];
             Long chatId = (Long) userChat[1];
+            if (guard.decide(userId, TasksModule.ID, TasksModule.DIGEST) != AccessDecision.ALLOW) {
+                continue;
+            }
             TaskSaveService.Agenda agenda = tasks.today(userId);
             if (agenda.totalCount() == 0) {
                 continue;

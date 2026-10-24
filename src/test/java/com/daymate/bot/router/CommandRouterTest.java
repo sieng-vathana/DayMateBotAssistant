@@ -1,15 +1,27 @@
 package com.daymate.bot.router;
 
 import com.daymate.bot.config.BotProperties;
+import com.daymate.bot.core.access.AccessDecision;
+import com.daymate.bot.core.access.FeatureAccessGuard;
+import com.daymate.bot.core.module.ModuleRegistry;
+import com.daymate.bot.core.security.UserRateLimiter;
+import com.daymate.bot.domain.ConversationStep;
 import com.daymate.bot.domain.Language;
-import com.daymate.bot.service.LanguageService;
 import com.daymate.bot.domain.Recurrence;
 import com.daymate.bot.domain.TaskCategory;
 import com.daymate.bot.domain.TaskPriority;
 import com.daymate.bot.dto.request.TelegramUpdateRequest;
+import com.daymate.bot.entity.ConversationStateEntity;
 import com.daymate.bot.entity.TaskEntity;
+import com.daymate.bot.modules.developer.DeveloperModule;
+import com.daymate.bot.modules.finance.FinanceModule;
+import com.daymate.bot.modules.overtime.OvertimeModule;
+import com.daymate.bot.modules.save.SaveModule;
+import com.daymate.bot.modules.task.TasksModule;
 import com.daymate.bot.save.TaskSaveService;
+import com.daymate.bot.service.ConversationLookup;
 import com.daymate.bot.service.ConversationService;
+import com.daymate.bot.service.LanguageService;
 import com.daymate.bot.service.PlannerFormatter;
 import com.daymate.bot.telegram.TelegramApiClient;
 import org.junit.jupiter.api.BeforeEach;
@@ -24,11 +36,13 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.List;
-import java.util.Optional;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -48,6 +62,10 @@ class CommandRouterTest {
     private OtHandler otHandler;
     @Mock
     private LanguageService languages;
+    @Mock
+    private FeatureAccessGuard guard;
+    @Mock
+    private UserRateLimiter rateLimiter;
 
     private CommandRouter router;
 
@@ -56,17 +74,37 @@ class CommandRouterTest {
         BotProperties properties = new BotProperties();
         properties.setAllowedUserIds("");
         lenient().when(languages.get(any())).thenReturn(Language.EN);
-        router = new CommandRouter(telegram, tasks, conversations, conversationHandler, otHandler, languages,
-                new PlannerFormatter(), properties);
+        lenient().when(rateLimiter.allow(any())).thenReturn(true);
+        lenient().when(conversations.read(any())).thenReturn(ConversationLookup.none());
+        lenient().when(guard.isModuleEnabled(any())).thenReturn(true);
+        lenient().when(guard.decide(any(), any(), nullable(String.class))).thenReturn(AccessDecision.MODULE_OFF);
+        lenient().when(guard.decide(any(), eq("overtime"), nullable(String.class))).thenReturn(AccessDecision.ALLOW);
+        lenient().when(guard.visible(any(), any())).thenAnswer(invocation ->
+                "overtime".equals(((com.daymate.bot.core.module.BotModule) invocation.getArgument(1)).moduleId()));
+        PlannerFormatter formatter = new PlannerFormatter();
+        ModuleRegistry registry = new ModuleRegistry(List.of(
+                new OvertimeModule(otHandler, telegram),
+                new TasksModule(tasks, conversationHandler, conversations, formatter, telegram),
+                new FinanceModule(telegram),
+                new SaveModule(telegram),
+                new DeveloperModule(telegram)));
+        router = new CommandRouter(telegram, conversations, languages, formatter, registry, guard, rateLimiter, properties);
     }
 
     @Test
     void startSendsWelcomeCopy() {
         router.process(message(1L, "/start"));
+
         ArgumentCaptor<String> text = ArgumentCaptor.forClass(String.class);
-        verify(telegram).sendMessage(eq(1L), text.capture());
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<List<Map<String, String>>>> keyboard = ArgumentCaptor.forClass(List.class);
+        verify(telegram).sendMessage(eq(1L), text.capture(), keyboard.capture());
         assertThat(text.getValue()).contains("Welcome to DayMate");
         assertThat(text.getValue()).contains("/upcoming_salary");
+        assertThat(keyboard.getValue()).hasSize(1);
+        assertThat(keyboard.getValue().get(0).get(0))
+                .containsEntry("text", "Overtime")
+                .containsEntry("callback_data", "menu:overtime");
         verify(conversations).clear(1L);
     }
 
@@ -85,6 +123,7 @@ class CommandRouterTest {
 
     @Test
     void completeCallbackSendsCelebration() {
+        when(guard.decide(1L, "tasks", "tasks.complete")).thenReturn(AccessDecision.ALLOW);
         LocalDate date = LocalDate.of(2026, 10, 10);
         TaskEntity task = TaskEntity.create(
                 "T-002", 1L, 1L, "Call dentist",
@@ -107,10 +146,112 @@ class CommandRouterTest {
 
     @Test
     void nonCommandDuringIdleShowsHelpHint() {
-        when(conversations.get(1L)).thenReturn(Optional.empty());
         router.process(message(1L, "hello"));
         verify(conversationHandler, never()).handleText(any(), any(), any());
+        verify(otHandler, never()).handleText(any(), any(), any());
         verify(telegram).sendMessage(eq(1L), eq("I don't know that command. Send /help to see what I can do."));
+    }
+
+    @Test
+    void disabledOvertimeIsNotCalled() {
+        when(guard.decide(any(), eq("overtime"), nullable(String.class))).thenReturn(AccessDecision.MODULE_OFF);
+
+        router.process(message(1L, "/ot"));
+
+        verify(telegram).sendMessage(eq(1L), eq("🚧 Overtime is currently unavailable."));
+        verify(otHandler, never()).startRecord(any(), any(), any());
+    }
+
+    @Test
+    void unknownCallbackDoesNotReachAModule() {
+        router.process(callback(1L, 10L, "evil:run"));
+
+        verify(telegram).answerCallback("cb-1", "This button is no longer available.", true);
+        verify(otHandler, never()).handleCallback(any(), any(), any(), any());
+        verify(tasks, never()).complete(any(), any());
+        verify(tasks, never()).today(any());
+    }
+
+    @Test
+    void editCallbacksStillReachOvertime() {
+        when(otHandler.handleCallback(eq("cb-1"), eq(1L), eq(1L), eq("ot:edittime:202610:1:0730:1630:W"))).thenReturn(true);
+        when(otHandler.handleCallback(eq("cb-1"), eq(1L), eq(1L), eq("ot:edit:2026-10:1"))).thenReturn(true);
+
+        router.process(callback(1L, 10L, "ot:edittime:202610:1:0730:1630:W"));
+        router.process(callback(1L, 10L, "ot:edit:2026-10:1"));
+
+        verify(otHandler).handleCallback("cb-1", 1L, 1L, "ot:edittime:202610:1:0730:1630:W");
+        verify(otHandler).handleCallback("cb-1", 1L, 1L, "ot:edit:2026-10:1");
+        verify(telegram, never()).answerCallback(any(), any(), anyBoolean());
+    }
+
+    @Test
+    void oldTaskButtonSaysTasksAreUnavailable() {
+        router.process(callback(1L, 10L, "nav:today"));
+
+        verify(telegram).answerCallback("cb-1", "🚧 Tasks is currently unavailable.", true);
+        verify(tasks, never()).today(any());
+    }
+
+    @Test
+    void directFinanceCommandIsDenied() {
+        router.process(message(1L, "/finance"));
+        verify(telegram).sendMessage(eq(1L), eq("🚧 Finance is currently unavailable."));
+    }
+
+    @Test
+    void expiredStepTellsTheUserToStartAgain() {
+        when(conversations.read(1L)).thenReturn(ConversationLookup.expired());
+
+        router.process(message(1L, "08:30-17:30"));
+
+        verify(telegram).sendMessage(eq(1L), eq("That step expired. Send /menu to start again."));
+        verify(otHandler, never()).handleText(any(), any(), any());
+        verify(conversations, never()).clear(any());
+    }
+
+    @Test
+    void anotherUsersConversationIsLeftAlone() {
+        ConversationStateEntity state = new ConversationStateEntity(
+                1L, 99L, ConversationStep.OT_TIME, Instant.parse("2026-10-24T02:00:00Z"));
+        when(conversations.read(1L)).thenReturn(ConversationLookup.found(state));
+
+        router.process(message(1L, "08:30-17:30"));
+
+        verify(telegram).sendMessage(eq(1L), eq("I don't know that command. Send /help to see what I can do."));
+        verify(otHandler, never()).handleText(any(), any(), any());
+        verify(conversations, never()).clear(any());
+    }
+
+    @Test
+    void longMessageDoesNotClearState() {
+        router.process(message(1L, "x".repeat(1001)));
+
+        verify(telegram).sendMessage(eq(1L), eq("Send a shorter message."));
+        verify(conversations, never()).clear(any());
+        verify(otHandler, never()).handleText(any(), any(), any());
+    }
+
+    @Test
+    void rateLimitDoesNotCallTheModule() {
+        when(rateLimiter.allow(1L)).thenReturn(false);
+
+        router.process(message(1L, "/ot"));
+
+        verify(telegram).sendMessage(eq(1L), eq("Slow down a moment."));
+        verify(conversations, never()).clear(any());
+        verify(otHandler, never()).startRecord(any(), any(), any());
+    }
+
+    @Test
+    void cancelStillClearsWhenOvertimeIsSwitchedOff() {
+        when(guard.isModuleEnabled("overtime")).thenReturn(false);
+        when(guard.decide(any(), eq("overtime"), nullable(String.class))).thenReturn(AccessDecision.MODULE_OFF);
+        when(otHandler.handleCallback("cb-1", 1L, 1L, "ot:cancel")).thenReturn(true);
+
+        router.process(callback(1L, 10L, "ot:cancel"));
+
+        verify(otHandler).handleCallback("cb-1", 1L, 1L, "ot:cancel");
     }
 
     private static TelegramUpdateRequest message(long userId, String text) {

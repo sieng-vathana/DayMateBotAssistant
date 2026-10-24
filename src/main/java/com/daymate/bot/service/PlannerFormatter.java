@@ -241,6 +241,32 @@ public class PlannerFormatter {
                 "ខ្ញុំមិនស្គាល់ពាក្យបញ្ជានេះទេ។ ផ្ញើ /help ដើម្បីមើលអ្វីដែលខ្ញុំធ្វើបាន។");
     }
 
+    public String helpWhenOvertimeHidden() {
+        return Texts.t(
+                "Send /menu to see what is available.",
+                "ផ្ញើ /menu ដើម្បីមើលអ្វីដែលមាន។");
+    }
+
+    public String stepExpired() {
+        return Texts.t(
+                "That step expired. Send /menu to start again.",
+                "ជំហាននោះផុតកំណត់ហើយ។ ផ្ញើ /menu ដើម្បីចាប់ផ្តើមម្តងទៀត។");
+    }
+
+    public String slowDown() {
+        return Texts.t("Slow down a moment.", "សូមយឺតបន្តិច។");
+    }
+
+    public String shorterMessage() {
+        return Texts.t("Send a shorter message.", "សូមផ្ញើសារខ្លីជាងនេះ។");
+    }
+
+    public String didNotWork() {
+        return Texts.t(
+                "That did not work. Send /menu to start again.",
+                "វាមិនដំណើរការទេ។ ផ្ញើ /menu ដើម្បីចាប់ផ្តើមម្តងទៀត។");
+    }
+
     public String notAllowed(Long userId) {
         return Texts.t(
                 "This bot is not configured for your account yet.\nYour user ID: " + userId,

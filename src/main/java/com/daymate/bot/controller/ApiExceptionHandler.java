@@ -1,5 +1,6 @@
 package com.daymate.bot.controller;
 
+import com.daymate.bot.core.access.AccessDeniedException;
 import com.daymate.bot.dto.response.ApiErrorResponse;
 import com.daymate.bot.telegram.TelegramApiClient;
 import org.springframework.http.HttpStatus;
@@ -14,6 +15,11 @@ public class ApiExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ApiErrorResponse> badRequest(IllegalArgumentException exception) {
         return response(HttpStatus.BAD_REQUEST, exception.getMessage());
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiErrorResponse> forbidden(AccessDeniedException exception) {
+        return response(HttpStatus.FORBIDDEN, "That action is currently unavailable.");
     }
 
     @ExceptionHandler(TelegramApiClient.TelegramApiException.class)

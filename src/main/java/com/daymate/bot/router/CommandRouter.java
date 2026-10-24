@@ -1,46 +1,66 @@
 package com.daymate.bot.router;
 
 import com.daymate.bot.config.BotProperties;
+import com.daymate.bot.core.access.AccessDecision;
+import com.daymate.bot.core.access.AccessMessages;
+import com.daymate.bot.core.access.FeatureAccessGuard;
+import com.daymate.bot.core.module.BotContext;
+import com.daymate.bot.core.module.BotContexts;
+import com.daymate.bot.core.module.BotModule;
+import com.daymate.bot.core.module.FeatureDeclaration;
+import com.daymate.bot.core.module.MenuAction;
+import com.daymate.bot.core.module.ModuleRegistry;
+import com.daymate.bot.core.security.UserRateLimiter;
 import com.daymate.bot.domain.Language;
 import com.daymate.bot.dto.request.TelegramUpdateRequest;
+import com.daymate.bot.entity.ConversationStateEntity;
 import com.daymate.bot.i18n.LanguageContext;
-import com.daymate.bot.entity.TaskEntity;
-import com.daymate.bot.save.TaskSaveService;
+import com.daymate.bot.modules.overtime.OvertimeModule;
+import com.daymate.bot.service.ConversationLookup;
 import com.daymate.bot.service.ConversationService;
 import com.daymate.bot.service.LanguageService;
 import com.daymate.bot.service.PlannerFormatter;
-import com.daymate.bot.telegram.InlineKeyboards;
 import com.daymate.bot.telegram.TelegramApiClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
 public class CommandRouter {
+    private static final Logger log = LoggerFactory.getLogger(CommandRouter.class);
+    private static final int MAX_TEXT = 1000;
+    private static final int MAX_CALLBACK = 64;
+
     private final TelegramApiClient telegram;
-    private final TaskSaveService tasks;
     private final ConversationService conversations;
-    private final ConversationHandler conversationHandler;
-    private final OtHandler otHandler;
     private final LanguageService languages;
     private final PlannerFormatter formatter;
+    private final ModuleRegistry registry;
+    private final FeatureAccessGuard guard;
+    private final UserRateLimiter rateLimiter;
     private final Set<Long> allowedUserIds;
 
-    public CommandRouter(TelegramApiClient telegram, TaskSaveService tasks, ConversationService conversations,
-                         ConversationHandler conversationHandler, OtHandler otHandler, LanguageService languages,
-                         PlannerFormatter formatter, BotProperties properties) {
+    public CommandRouter(TelegramApiClient telegram, ConversationService conversations, LanguageService languages,
+                         PlannerFormatter formatter, ModuleRegistry registry, FeatureAccessGuard guard,
+                         UserRateLimiter rateLimiter, BotProperties properties) {
         this.telegram = telegram;
-        this.tasks = tasks;
         this.conversations = conversations;
-        this.conversationHandler = conversationHandler;
-        this.otHandler = otHandler;
         this.languages = languages;
         this.formatter = formatter;
+        this.registry = registry;
+        this.guard = guard;
+        this.rateLimiter = rateLimiter;
         this.allowedUserIds = Arrays.stream(properties.getAllowedUserIds().split(","))
                 .map(String::trim)
                 .filter(value -> !value.isEmpty())
@@ -56,13 +76,20 @@ public class CommandRouter {
     }
 
     public void process(TelegramUpdateRequest update) {
-        if (update == null) {
-            return;
-        }
-        if (update.callbackQuery() != null) {
-            processCallback(update.callbackQuery());
-        } else if (update.message() != null) {
-            processMessage(update.message());
+        try {
+            LanguageContext.set(Language.EN);
+            BotContexts.clear();
+            if (update == null) {
+                return;
+            }
+            if (update.callbackQuery() != null) {
+                processCallback(update.callbackQuery());
+            } else if (update.message() != null) {
+                processMessage(update.message());
+            }
+        } finally {
+            LanguageContext.set(Language.EN);
+            BotContexts.clear();
         }
     }
 
@@ -73,29 +100,36 @@ public class CommandRouter {
         Long chatId = message.chat().id();
         Long userId = message.from().id();
         LanguageContext.set(languages.get(userId));
-        String text = message.text().trim();
-        if (text.equalsIgnoreCase("/id") || text.toLowerCase(Locale.ROOT).startsWith("/id@")) {
-            telegram.sendMessage(chatId, formatter.userId(userId));
-            return;
+        try {
+            if (!rateLimiter.allow(userId)) {
+                telegram.sendMessage(chatId, formatter.slowDown());
+                return;
+            }
+            String text = message.text().trim();
+            if (text.equalsIgnoreCase("/id") || text.toLowerCase(Locale.ROOT).startsWith("/id@")) {
+                telegram.sendMessage(chatId, formatter.userId(userId));
+                return;
+            }
+            if (!isAllowed(userId)) {
+                telegram.sendMessage(chatId, formatter.notAllowed(userId));
+                return;
+            }
+            if (message.text().length() > MAX_TEXT) {
+                telegram.sendMessage(chatId, formatter.shorterMessage());
+                return;
+            }
+            if (isCommand(text)) {
+                conversations.clear(chatId);
+                handleCommand(chatId, userId, text);
+                return;
+            }
+            handlePlainText(chatId, userId, text);
+        } catch (IllegalArgumentException exception) {
+            telegram.sendMessage(chatId, exception.getMessage());
+        } catch (RuntimeException exception) {
+            log.warn("Message failed for user {} ({})", userId, exception.getClass().getSimpleName());
+            telegram.sendMessage(chatId, formatter.didNotWork());
         }
-        if (!isAllowed(userId)) {
-            telegram.sendMessage(chatId, formatter.notAllowed(userId));
-            return;
-        }
-        if (isCommand(text)) {
-            conversations.clear(chatId);
-            handleCommand(chatId, userId, text);
-            return;
-        }
-        conversations.get(chatId).ifPresentOrElse(
-                state -> {
-                    if (state.getStep().isOtSetup()) {
-                        otHandler.handleText(state, chatId, text);
-                    } else {
-                        conversationHandler.handleText(state, chatId, text);
-                    }
-                },
-                () -> telegram.sendMessage(chatId, formatter.unknownCommand()));
     }
 
     private void processCallback(TelegramUpdateRequest.CallbackQuery callback) {
@@ -107,16 +141,24 @@ public class CommandRouter {
             return;
         }
         LanguageContext.set(languages.get(userId));
-        if (userId == null || !isAllowed(userId)) {
-            telegram.answerCallback(callback.id(), "You are not authorized to use this bot.", true);
-            return;
-        }
-        if (chatId == null || callback.data() == null) {
-            telegram.answerCallback(callback.id(), "This button is no longer available.", true);
-            return;
-        }
-        String data = callback.data();
         try {
+            if (userId != null && !rateLimiter.allow(userId)) {
+                telegram.answerCallback(callback.id(), formatter.slowDown(), true);
+                return;
+            }
+            if (userId == null || !isAllowed(userId)) {
+                telegram.answerCallback(callback.id(), "You are not authorized to use this bot.", true);
+                return;
+            }
+            if (chatId == null || callback.data() == null) {
+                telegram.answerCallback(callback.id(), "This button is no longer available.", true);
+                return;
+            }
+            String data = callback.data();
+            if (data.length() > MAX_CALLBACK) {
+                telegram.answerCallback(callback.id(), "This button is no longer available.", true);
+                return;
+            }
             if (data.startsWith("lang:")) {
                 Language chosen = Language.from(data.substring("lang:".length()));
                 languages.set(userId, chosen);
@@ -125,90 +167,26 @@ public class CommandRouter {
                 telegram.sendMessage(chatId, formatter.languageSaved());
                 return;
             }
-            if (data.startsWith("ot:")) {
-                if (!otHandler.handleCallback(callback.id(), chatId, userId, data)) {
-                    telegram.answerCallback(callback.id(), "This button is no longer available.", true);
-                }
+            if (data.equals("menu:home") || data.equals("menu")) {
+                conversations.clear(chatId);
+                telegram.answerCallback(callback.id(), "Menu", false);
+                showMainMenu(chatId, userId);
                 return;
             }
-            if (data.startsWith("flow:")) {
-                var state = conversations.get(chatId);
-                if (state.isEmpty()) {
-                    telegram.answerCallback(callback.id(), "That add-task step expired. Send /add to start again.", true);
-                    return;
-                }
-                telegram.answerCallback(callback.id(), "Saved", false);
-                conversationHandler.handleFlowCallback(state.get(), chatId, data);
+            if (data.startsWith("menu:")) {
+                handleMenu(callback.id(), chatId, messageId, userId, data);
                 return;
             }
-            dispatchCallback(callback.id(), chatId, messageId, userId, data);
+            if (data.equals("ot:cancel")) {
+                handleCancel(callback.id(), chatId, messageId, userId);
+                return;
+            }
+            dispatchModuleCallback(callback.id(), chatId, messageId, userId, data);
         } catch (IllegalArgumentException exception) {
             telegram.answerCallback(callback.id(), exception.getMessage(), true);
-        }
-    }
-
-    private void dispatchCallback(String callbackId, Long chatId, Long messageId, Long userId, String data) {
-        if (data.equals("nav:today") || data.equals("nav:refresh")) {
-            telegram.answerCallback(callbackId, "Today", false);
-            sendToday(chatId, userId, messageId, data.equals("nav:refresh"));
-            return;
-        }
-        if (data.equals("nav:add")) {
-            telegram.answerCallback(callbackId, "Add a task", false);
-            conversationHandler.startAdd(chatId, userId);
-            return;
-        }
-        if (data.equals("nav:all_done")) {
-            List<TaskEntity> completed = tasks.completeAllOpenToday(userId);
-            telegram.answerCallback(callbackId, "All done", false);
-            reply(chatId, messageId, formatter.allDone(completed.size()), InlineKeyboards.emptyToday());
-            return;
-        }
-        if (data.equals("nav:list")) {
-            telegram.answerCallback(callbackId, "List", false);
-            sendList(chatId, userId);
-            return;
-        }
-        if (data.startsWith("t:")) {
-            handleTaskCallback(callbackId, chatId, messageId, userId, data);
-            return;
-        }
-        telegram.answerCallback(callbackId, "This button is no longer available.", true);
-    }
-
-    private void handleTaskCallback(String callbackId, Long chatId, Long messageId, Long userId, String data) {
-        String[] parts = data.split(":", 3);
-        if (parts.length < 3) {
-            telegram.answerCallback(callbackId, "This button is no longer available.", true);
-            return;
-        }
-        String action = parts[1];
-        String publicId = parts[2];
-        switch (action) {
-            case "start" -> {
-                tasks.start(userId, publicId);
-                telegram.answerCallback(callbackId, "In progress", false);
-                sendToday(chatId, userId, messageId, true);
-            }
-            case "complete", "pick" -> {
-                TaskEntity task = tasks.complete(userId, publicId);
-                TaskSaveService.Agenda agenda = tasks.today(userId);
-                telegram.answerCallback(callbackId, "Completed", false);
-                telegram.sendMessage(chatId, formatter.taskCompleted(task, agenda, tasks.zoneId()));
-                sendToday(chatId, userId, messageId, true);
-            }
-            case "snooze" -> {
-                TaskEntity task = tasks.snooze(userId, publicId);
-                telegram.answerCallback(callbackId, "Snoozed 1 hour", false);
-                sendToday(chatId, userId, messageId, true);
-                telegram.sendMessage(chatId, formatter.taskSnoozed(task));
-            }
-            case "delete" -> {
-                tasks.delete(userId, publicId);
-                telegram.answerCallback(callbackId, "Deleted", false);
-                sendToday(chatId, userId, messageId, true);
-            }
-            default -> telegram.answerCallback(callbackId, "This button is no longer available.", true);
+        } catch (RuntimeException exception) {
+            log.warn("Callback failed for user {} ({})", userId, exception.getClass().getSimpleName());
+            telegram.answerCallback(callback.id(), formatter.didNotWork(), true);
         }
     }
 
@@ -221,53 +199,241 @@ public class CommandRouter {
         }
         String argument = parts.length > 1 ? parts[1].trim() : "";
         switch (command) {
-            case "/start", "/menu" -> telegram.sendMessage(chatId, formatter.welcome());
-            case "/help" -> telegram.sendMessage(chatId, formatter.help());
+            case "/start", "/menu" -> showMainMenu(chatId, userId);
+            case "/help" -> showHelp(chatId, userId);
             case "/language", "/lang" -> telegram.sendMessage(chatId, formatter.languagePrompt(), languageKeyboard());
-            case "/ot", "/ot-record" -> otHandler.startRecord(chatId, userId, argument);
-            case "/otlist", "/ot-list" -> otHandler.list(chatId, userId);
-            case "/ot-history", "/othistory", "/ot_history" -> otHandler.history(chatId, userId, argument);
-            case "/del", "/delete" -> otHandler.deleteCommand(chatId, userId, argument);
-            case "/salary" -> otHandler.startSalary(chatId, userId);
-            case "/upcoming_salary", "/upcomingsalary", "/upcoming-salary" -> otHandler.upcoming(chatId, userId);
-            default -> telegram.sendMessage(chatId, formatter.unknownCommand());
+            default -> dispatchCommand(chatId, userId, command, argument);
         }
     }
 
-    private void handleDone(Long chatId, Long userId, String argument) {
-        if (!argument.isBlank()) {
-            TaskEntity task = tasks.complete(userId, argument);
-            TaskSaveService.Agenda agenda = tasks.today(userId);
-            telegram.sendMessage(chatId, formatter.taskCompleted(task, agenda, tasks.zoneId()));
+    private void dispatchCommand(Long chatId, Long userId, String command, String argument) {
+        Optional<BotModule> found = registry.findByCommand(command);
+        if (found.isEmpty()) {
+            telegram.sendMessage(chatId, formatter.unknownCommand());
             return;
         }
-        List<TaskEntity> open = tasks.today(userId).remaining();
-        if (open.isEmpty()) {
-            telegram.sendMessage(chatId, formatter.donePickerEmpty());
+        BotModule module = found.get();
+        String feature = module.featureForCommand(command);
+        AccessDecision decision = guard.decide(userId, module.moduleId(), feature);
+        if (decision != AccessDecision.ALLOW) {
+            telegram.sendMessage(chatId, denialText(decision, module));
             return;
         }
-        telegram.sendMessage(chatId, formatter.donePicker(), InlineKeyboards.donePicker(open));
+        BotContext context = contextFor(chatId, userId, null, null, null, module, feature);
+        BotContexts.set(context);
+        invokeMessage(module, userId, chatId, () -> module.handleCommand(context, command, argument));
     }
 
-    private void sendToday(Long chatId, Long userId, Long messageId, boolean edit) {
-        TaskSaveService.Agenda agenda = tasks.today(userId);
-        var keyboard = agenda.remaining().isEmpty()
-                ? InlineKeyboards.emptyToday()
-                : InlineKeyboards.today(agenda.remaining());
-        reply(chatId, edit ? messageId : null, formatter.today(agenda), keyboard);
+    private void showHelp(Long chatId, Long userId) {
+        boolean overtimeAllowed = registry.find(OvertimeModule.ID)
+                .map(module -> guard.visible(userId, module))
+                .orElse(false);
+        telegram.sendMessage(chatId, overtimeAllowed ? formatter.help() : formatter.helpWhenOvertimeHidden());
     }
 
-    private void sendList(Long chatId, Long userId) {
-        TaskSaveService.Agenda agenda = tasks.today(userId);
-        telegram.sendMessage(chatId, formatter.list(tasks.pending(userId), agenda.completedToday()));
-    }
-
-    private void reply(Long chatId, Long messageId, String text, java.util.List<java.util.List<java.util.Map<String, String>>> keyboard) {
-        if (messageId != null) {
-            telegram.editMessage(chatId, messageId, text, keyboard);
-        } else {
-            telegram.sendMessage(chatId, text, keyboard);
+    private void showMainMenu(Long chatId, Long userId) {
+        List<BotModule> visible = registry.all().stream()
+                .filter(module -> guard.visible(userId, module))
+                .sorted(Comparator.comparingInt(BotModule::displayOrder))
+                .toList();
+        if (visible.isEmpty()) {
+            telegram.sendMessage(chatId, formatter.welcome());
+            return;
         }
+        List<List<Map<String, String>>> rows = new ArrayList<>();
+        for (BotModule module : visible) {
+            rows.add(List.of(button(module.displayName(), "menu:" + module.moduleId())));
+        }
+        telegram.sendMessage(chatId, formatter.welcome(), rows);
+    }
+
+    private void handleMenu(String callbackId, Long chatId, Long messageId, Long userId, String data) {
+        String rest = data.substring("menu:".length());
+        int colon = rest.indexOf(':');
+        String moduleId = colon < 0 ? rest : rest.substring(0, colon);
+        String action = colon < 0 ? null : rest.substring(colon + 1);
+        Optional<BotModule> found = registry.find(moduleId);
+        if (found.isEmpty()) {
+            telegram.answerCallback(callbackId, AccessMessages.actionUnavailable(), true);
+            return;
+        }
+        BotModule module = found.get();
+        if (action == null) {
+            AccessDecision decision = guard.decide(userId, module.moduleId(), null);
+            if (decision != AccessDecision.ALLOW || !guard.visible(userId, module)) {
+                clearOwnedConversation(chatId, userId);
+                telegram.answerCallback(callbackId, denialText(decision == AccessDecision.ALLOW
+                        ? AccessDecision.MODULE_OFF : decision, module), true);
+                return;
+            }
+            telegram.answerCallback(callbackId, module.displayName(), false);
+            BotContext context = contextFor(chatId, userId, callbackId, messageId, null, module, null);
+            BotContexts.set(context);
+            invokeMessage(module, userId, chatId, () -> module.showMenu(context));
+            return;
+        }
+        MenuAction menuAction = module.menuActions().stream()
+                .filter(candidate -> candidate.action().equals(action))
+                .findFirst()
+                .orElse(null);
+        String command = module.commandForMenuAction(action);
+        if (menuAction == null || command == null) {
+            telegram.answerCallback(callbackId, "This button is no longer available.", true);
+            return;
+        }
+        AccessDecision decision = guard.decide(userId, module.moduleId(), menuAction.featureKey());
+        if (decision != AccessDecision.ALLOW) {
+            clearOwnedConversation(chatId, userId);
+            telegram.answerCallback(callbackId, denialText(decision, module), true);
+            return;
+        }
+        telegram.answerCallback(callbackId, menuAction.label(), false);
+        conversations.clear(chatId);
+        BotContext context = contextFor(chatId, userId, callbackId, messageId, null, module, menuAction.featureKey());
+        BotContexts.set(context);
+        invokeMessage(module, userId, chatId, () -> module.handleCommand(context, command, ""));
+    }
+
+    private void handleCancel(String callbackId, Long chatId, Long messageId, Long userId) {
+        Optional<BotModule> overtime = registry.find(OvertimeModule.ID);
+        boolean moduleDisabled = overtime.isEmpty() || !guard.isModuleEnabled(OvertimeModule.ID);
+        AccessDecision decision = guard.decide(userId, OvertimeModule.ID, null);
+        if (decision == AccessDecision.ALLOW || moduleDisabled) {
+            if (overtime.isEmpty()) {
+                conversations.clear(chatId);
+                telegram.answerCallback(callbackId, "Cancelled", false);
+                return;
+            }
+            BotModule module = overtime.get();
+            BotContext context = contextFor(chatId, userId, callbackId, messageId, null, module, null);
+            BotContexts.set(context);
+            boolean handled = invokeCallback(module, userId, callbackId, chatId,
+                    () -> module.handleCallback(context, "ot:cancel"));
+            if (!handled) {
+                conversations.clear(chatId);
+                telegram.answerCallback(callbackId, "Cancelled", false);
+            }
+            return;
+        }
+        telegram.answerCallback(callbackId, AccessMessages.moduleUnavailable(overtime.get().displayName()), true);
+    }
+
+    private void dispatchModuleCallback(String callbackId, Long chatId, Long messageId, Long userId, String data) {
+        Optional<BotModule> found = registry.findByCallback(data);
+        if (found.isEmpty()) {
+            telegram.answerCallback(callbackId, "This button is no longer available.", true);
+            return;
+        }
+        BotModule module = found.get();
+        String feature = module.featureForCallback(data);
+        AccessDecision decision = guard.decide(userId, module.moduleId(), feature);
+        if (decision != AccessDecision.ALLOW) {
+            clearOwnedConversation(chatId, userId);
+            telegram.answerCallback(callbackId, denialText(decision, module), true);
+            return;
+        }
+        BotContext context = contextFor(chatId, userId, callbackId, messageId, null, module, feature);
+        BotContexts.set(context);
+        boolean handled = invokeCallback(module, userId, callbackId, chatId,
+                () -> module.handleCallback(context, data));
+        if (!handled) {
+            telegram.answerCallback(callbackId, "This button is no longer available.", true);
+        }
+    }
+
+    private void handlePlainText(Long chatId, Long userId, String text) {
+        ConversationLookup lookup = conversations.read(chatId);
+        if (lookup.kind() == ConversationLookup.Kind.EXPIRED) {
+            telegram.sendMessage(chatId, formatter.stepExpired());
+            return;
+        }
+        if (lookup.kind() != ConversationLookup.Kind.FOUND) {
+            telegram.sendMessage(chatId, formatter.unknownCommand());
+            return;
+        }
+        ConversationStateEntity state = lookup.state();
+        if (state.getUserId() == null || !state.getUserId().equals(userId)) {
+            telegram.sendMessage(chatId, formatter.unknownCommand());
+            return;
+        }
+        String moduleId = state.getModuleKey();
+        if (moduleId == null || moduleId.isBlank()) {
+            moduleId = state.getStep().isOtSetup() ? OvertimeModule.ID : "tasks";
+        }
+        Optional<BotModule> found = registry.find(moduleId);
+        if (found.isEmpty()) {
+            conversations.clear(chatId);
+            telegram.sendMessage(chatId, AccessMessages.actionUnavailable());
+            return;
+        }
+        BotModule module = found.get();
+        String feature = module.featureForState(state);
+        AccessDecision decision = guard.decide(userId, module.moduleId(), feature);
+        if (decision != AccessDecision.ALLOW) {
+            conversations.clear(chatId);
+            telegram.sendMessage(chatId, denialText(decision, module));
+            return;
+        }
+        BotContext context = contextFor(chatId, userId, null, null, state, module, feature);
+        BotContexts.set(context);
+        invokeMessage(module, userId, chatId, () -> module.handleMessage(context, text));
+    }
+
+    private void clearOwnedConversation(Long chatId, Long userId) {
+        ConversationLookup lookup = conversations.read(chatId);
+        if (lookup.kind() == ConversationLookup.Kind.FOUND
+                && lookup.state().getUserId() != null
+                && lookup.state().getUserId().equals(userId)) {
+            conversations.clear(chatId);
+        }
+    }
+
+    private BotContext contextFor(Long chatId, Long userId, String callbackId, Long messageId,
+                                  ConversationStateEntity state, BotModule module, String feature) {
+        return new BotContext(chatId, userId, callbackId, messageId, state, module.moduleId(), feature,
+                allowedFeatures(userId, module));
+    }
+
+    private Set<String> allowedFeatures(Long userId, BotModule module) {
+        Set<String> allowed = new LinkedHashSet<>();
+        for (FeatureDeclaration feature : module.features()) {
+            if (guard.decide(userId, module.moduleId(), feature.key()) == AccessDecision.ALLOW) {
+                allowed.add(feature.key());
+            }
+        }
+        return Set.copyOf(allowed);
+    }
+
+    private void invokeMessage(BotModule module, Long userId, Long chatId, Runnable action) {
+        try {
+            action.run();
+        } catch (IllegalArgumentException exception) {
+            telegram.sendMessage(chatId, exception.getMessage());
+        } catch (RuntimeException exception) {
+            log.warn("Module {} failed for user {} ({})", module.moduleId(), userId, exception.getClass().getSimpleName());
+            telegram.sendMessage(chatId, formatter.didNotWork());
+        }
+    }
+
+    private boolean invokeCallback(BotModule module, Long userId, String callbackId, Long chatId,
+                                   CallbackAction action) {
+        try {
+            return action.run();
+        } catch (IllegalArgumentException exception) {
+            telegram.answerCallback(callbackId, exception.getMessage(), true);
+            return true;
+        } catch (RuntimeException exception) {
+            log.warn("Module {} failed for user {} ({})", module.moduleId(), userId, exception.getClass().getSimpleName());
+            telegram.answerCallback(callbackId, formatter.didNotWork(), true);
+            return true;
+        }
+    }
+
+    private static String denialText(AccessDecision decision, BotModule module) {
+        if (decision == AccessDecision.MODULE_OFF) {
+            return AccessMessages.moduleUnavailable(module.displayName());
+        }
+        return AccessMessages.actionUnavailable();
     }
 
     private static List<List<Map<String, String>>> languageKeyboard() {
@@ -276,11 +442,20 @@ public class CommandRouter {
                 Map.of("text", "ខ្មែរ", "callback_data", "lang:km")));
     }
 
+    private static Map<String, String> button(String text, String data) {
+        return Map.of("text", text, "callback_data", data);
+    }
+
     private boolean isAllowed(Long userId) {
         return allowedUserIds.isEmpty() || allowedUserIds.contains(userId);
     }
 
     private static boolean isCommand(String text) {
         return text.startsWith("/");
+    }
+
+    @FunctionalInterface
+    private interface CallbackAction {
+        boolean run();
     }
 }

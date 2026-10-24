@@ -41,6 +41,11 @@ public class ConversationStateEntity {
     private Boolean resumeOt;
     @Column(length = 32)
     private String pendingRange;
+    @Column(length = 32)
+    private String moduleKey;
+    @Column(length = 64)
+    private String action;
+    private Instant expiresAt;
     private Instant updatedAt;
 
     protected ConversationStateEntity() {
@@ -105,6 +110,18 @@ public class ConversationStateEntity {
         this.pendingRange = pendingRange;
     }
 
+    public void setModuleKey(String moduleKey) {
+        this.moduleKey = moduleKey;
+    }
+
+    public void setAction(String action) {
+        this.action = action;
+    }
+
+    public void setExpiresAt(Instant expiresAt) {
+        this.expiresAt = expiresAt;
+    }
+
     public void setUpdatedAt(Instant updatedAt) {
         this.updatedAt = updatedAt;
     }
@@ -167,6 +184,18 @@ public class ConversationStateEntity {
 
     public String getPendingRange() {
         return pendingRange;
+    }
+
+    public String getModuleKey() {
+        return moduleKey;
+    }
+
+    public String getAction() {
+        return action;
+    }
+
+    public Instant getExpiresAt() {
+        return expiresAt;
     }
 
     public Instant getUpdatedAt() {

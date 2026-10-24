@@ -1,7 +1,11 @@
 package com.daymate.bot.poller;
 
+import com.daymate.bot.core.module.BotContexts;
+import com.daymate.bot.core.security.UpdateDeduper;
+import com.daymate.bot.domain.Language;
 import com.daymate.bot.dto.request.TelegramUpdateRequest;
 import com.daymate.bot.entity.BotStateEntity;
+import com.daymate.bot.i18n.LanguageContext;
 import com.daymate.bot.repository.BotStateRepository;
 import com.daymate.bot.router.CommandRouter;
 import com.daymate.bot.telegram.TelegramApiClient;
@@ -23,15 +27,17 @@ public class BotPoller {
     private final CommandRouter commandRouter;
     private final BotStateRepository stateRepository;
     private final ObjectMapper objectMapper;
+    private final UpdateDeduper deduper;
     private long nextOffset = -1;
     private boolean offsetLoaded;
 
     public BotPoller(TelegramApiClient telegram, CommandRouter commandRouter,
-                     BotStateRepository stateRepository, ObjectMapper objectMapper) {
+                     BotStateRepository stateRepository, ObjectMapper objectMapper, UpdateDeduper deduper) {
         this.telegram = telegram;
         this.commandRouter = commandRouter;
         this.stateRepository = stateRepository;
         this.objectMapper = objectMapper;
+        this.deduper = deduper;
     }
 
     @Scheduled(fixedDelayString = "${telegram.bot.poll-delay-ms:1000}")
@@ -45,13 +51,25 @@ public class BotPoller {
             for (JsonNode updateNode : updates) {
                 TelegramUpdateRequest update = objectMapper.treeToValue(updateNode, TelegramUpdateRequest.class);
                 try {
-                    commandRouter.process(update);
-                } catch (RuntimeException exception) {
-                    log.warn("Could not process Telegram update {}: {}", update.updateId(), exception.getMessage());
-                }
-                if (update.updateId() != null) {
-                    nextOffset = update.updateId() + 1;
-                    persistOffset(nextOffset);
+                    if (update.updateId() != null && deduper.alreadyHandled(update.updateId())) {
+                        continue;
+                    }
+                    if (update.updateId() != null) {
+                        deduper.markHandled(update.updateId());
+                    }
+                    try {
+                        commandRouter.process(update);
+                    } catch (RuntimeException exception) {
+                        log.warn("Could not process Telegram update {} ({})",
+                                update.updateId(), exception.getClass().getSimpleName());
+                    }
+                } finally {
+                    LanguageContext.set(Language.EN);
+                    BotContexts.clear();
+                    if (update.updateId() != null) {
+                        nextOffset = update.updateId() + 1;
+                        persistOffset(nextOffset);
+                    }
                 }
             }
         } catch (TelegramApiClient.TelegramApiException exception) {
