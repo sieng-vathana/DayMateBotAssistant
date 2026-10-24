@@ -65,9 +65,7 @@ public class PortalAccountService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Username must be 3–32 letters, numbers, or underscores.");
         }
-        if (password == null || password.length() < 8 || password.length() > 72) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Password must be 8–72 characters.");
-        }
+        checkPassword(password);
         if (users.findByUsername(name).isPresent()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "That username is already taken.");
         }
@@ -77,9 +75,60 @@ public class PortalAccountService {
     }
 
     @Transactional
+    public void rememberTelegramUser(Long telegramUserId, String rawUsername) {
+        if (telegramUserId == null) {
+            return;
+        }
+        String name = telegramName(rawUsername);
+        if (name == null) {
+            return;
+        }
+        PortalUserEntity byTelegram = users.findByTelegramUserId(telegramUserId).orElse(null);
+        if (byTelegram != null) {
+            if (!byTelegram.getUsername().equals(name) && users.findByUsername(name).isEmpty()) {
+                byTelegram.setUsername(name);
+                users.save(byTelegram);
+            }
+            return;
+        }
+        PortalUserEntity byName = users.findByUsername(name).orElse(null);
+        if (byName != null) {
+            if (byName.getTelegramUserId() == null) {
+                byName.setTelegramUserId(telegramUserId);
+                users.save(byName);
+            }
+            return;
+        }
+        PortalUserEntity created = new PortalUserEntity(name, null, Language.EN.name(), Instant.now(clock));
+        created.setTelegramUserId(telegramUserId);
+        users.save(created);
+    }
+
+    @Transactional(readOnly = true)
+    public String start(String rawUsername) {
+        PortalUserEntity user = requireTelegramUser(rawUsername);
+        return user.hasPassword() ? "PASSWORD" : "SET_PASSWORD";
+    }
+
+    @Transactional
+    public String setFirstPassword(String rawUsername, String password) {
+        PortalUserEntity user = requireTelegramUser(rawUsername);
+        if (user.hasPassword()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "This account already has a password. Log in with it.");
+        }
+        checkPassword(password);
+        user.setPasswordHash(passwords.encode(password));
+        users.save(user);
+        return openSession(user);
+    }
+
+    @Transactional
     public String login(String username, String password) {
-        PortalUserEntity user = users.findByUsername(normalize(username)).orElse(null);
-        if (user == null || password == null || !passwords.matches(password, user.getPasswordHash())) {
+        PortalUserEntity user = requireTelegramUser(username);
+        if (!user.hasPassword()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Set a password before entering.");
+        }
+        if (password == null || !passwords.matches(password, user.getPasswordHash())) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Username or password is wrong.");
         }
         return openSession(user);
@@ -194,8 +243,39 @@ public class PortalAccountService {
         return code.toString();
     }
 
+    private PortalUserEntity requireTelegramUser(String rawUsername) {
+        String name = telegramName(rawUsername);
+        if (name == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Enter your Telegram username, without the @.");
+        }
+        PortalUserEntity user = users.findByUsername(name).orElse(null);
+        if (user == null || user.getTelegramUserId() == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND,
+                    "Open the bot and send /start once, then come back with the same Telegram username.");
+        }
+        return user;
+    }
+
+    private static void checkPassword(String password) {
+        if (password == null || password.length() < 8 || password.length() > 72) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Password must be 8–72 characters.");
+        }
+    }
+
+    private static String telegramName(String rawUsername) {
+        if (rawUsername == null) {
+            return null;
+        }
+        String name = rawUsername.trim().toLowerCase();
+        if (name.startsWith("@")) {
+            name = name.substring(1);
+        }
+        return name.matches("[a-z0-9_]{5,32}") ? name : null;
+    }
+
     private static String normalize(String username) {
-        return username == null ? "" : username.trim().toLowerCase();
+        String name = telegramName(username);
+        return name == null ? "" : name;
     }
 
     private static String hash(String token) {

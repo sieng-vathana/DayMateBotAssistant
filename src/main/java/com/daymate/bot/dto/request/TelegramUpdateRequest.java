@@ -19,7 +19,8 @@ public record TelegramUpdateRequest(
 
     public record User(
             Long id,
-            @JsonProperty("first_name") String firstName) {
+            @JsonProperty("first_name") String firstName,
+            String username) {
     }
 
     public record CallbackQuery(

@@ -19,6 +19,7 @@ import com.daymate.bot.modules.notes.NotesModule;
 import com.daymate.bot.modules.overtime.OvertimeModule;
 import com.daymate.bot.service.ConversationLookup;
 import com.daymate.bot.service.ConversationService;
+import com.daymate.bot.portal.PortalAccountService;
 import com.daymate.bot.service.LanguageService;
 import com.daymate.bot.service.PlannerFormatter;
 import com.daymate.bot.telegram.TelegramApiClient;
@@ -46,6 +47,7 @@ public class CommandRouter {
     private final TelegramApiClient telegram;
     private final ConversationService conversations;
     private final LanguageService languages;
+    private final PortalAccountService portalAccounts;
     private final PlannerFormatter formatter;
     private final ModuleRegistry registry;
     private final FeatureAccessGuard guard;
@@ -53,11 +55,12 @@ public class CommandRouter {
     private final Set<Long> allowedUserIds;
 
     public CommandRouter(TelegramApiClient telegram, ConversationService conversations, LanguageService languages,
-                         PlannerFormatter formatter, ModuleRegistry registry, FeatureAccessGuard guard,
-                         UserRateLimiter rateLimiter, BotProperties properties) {
+                         PortalAccountService portalAccounts, PlannerFormatter formatter, ModuleRegistry registry,
+                         FeatureAccessGuard guard, UserRateLimiter rateLimiter, BotProperties properties) {
         this.telegram = telegram;
         this.conversations = conversations;
         this.languages = languages;
+        this.portalAccounts = portalAccounts;
         this.formatter = formatter;
         this.registry = registry;
         this.guard = guard;
@@ -100,6 +103,7 @@ public class CommandRouter {
         }
         Long chatId = message.chat().id();
         Long userId = message.from().id();
+        portalAccounts.rememberTelegramUser(userId, message.from().username());
         LanguageContext.set(languages.get(userId));
         try {
             if (!rateLimiter.allow(userId)) {
@@ -142,6 +146,9 @@ public class CommandRouter {
             return;
         }
         LanguageContext.set(languages.get(userId));
+        if (userId != null && callback.from() != null) {
+            portalAccounts.rememberTelegramUser(userId, callback.from().username());
+        }
         try {
             if (userId != null && !rateLimiter.allow(userId)) {
                 telegram.answerCallback(callback.id(), formatter.slowDown(), true);

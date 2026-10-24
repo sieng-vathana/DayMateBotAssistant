@@ -45,6 +45,17 @@ public class PortalController {
         return auth(token);
     }
 
+    @PostMapping("/api/auth/start")
+    public java.util.Map<String, String> start(@RequestBody Credentials body) {
+        return java.util.Map.of("status", accounts.start(body.username()));
+    }
+
+    @PostMapping("/api/auth/password")
+    public AuthResponse setPassword(@RequestBody Credentials body) {
+        String token = accounts.setFirstPassword(body.username(), body.password());
+        return auth(token);
+    }
+
     @PostMapping("/api/auth/login")
     public AuthResponse login(@RequestBody Credentials body) {
         String token = accounts.login(body.username(), body.password());

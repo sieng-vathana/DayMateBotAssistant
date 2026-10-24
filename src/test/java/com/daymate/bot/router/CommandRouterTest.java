@@ -26,6 +26,7 @@ import com.daymate.bot.notes.NoteTimes;
 import com.daymate.bot.save.TaskSaveService;
 import com.daymate.bot.service.ConversationLookup;
 import com.daymate.bot.service.ConversationService;
+import com.daymate.bot.portal.PortalAccountService;
 import com.daymate.bot.service.LanguageService;
 import com.daymate.bot.service.PlannerFormatter;
 import com.daymate.bot.telegram.TelegramApiClient;
@@ -69,6 +70,8 @@ class CommandRouterTest {
     @Mock
     private LanguageService languages;
     @Mock
+    private PortalAccountService portalAccounts;
+    @Mock
     private FeatureAccessGuard guard;
     @Mock
     private UserRateLimiter rateLimiter;
@@ -99,7 +102,7 @@ class CommandRouterTest {
                         new NoteFormatter(ZoneId.of("Asia/Phnom_Penh")),
                         new NoteTimes(Clock.systemUTC(), ZoneId.of("Asia/Phnom_Penh"))),
                 new DeveloperModule(telegram)));
-        router = new CommandRouter(telegram, conversations, languages, formatter, registry, guard, rateLimiter, properties);
+        router = new CommandRouter(telegram, conversations, languages, portalAccounts, formatter, registry, guard, rateLimiter, properties);
     }
 
     @Test
@@ -348,7 +351,7 @@ class CommandRouterTest {
                 new TelegramUpdateRequest.Message(
                         10L,
                         new TelegramUpdateRequest.Chat(userId),
-                        new TelegramUpdateRequest.User(userId, "Alex"),
+                        new TelegramUpdateRequest.User(userId, "Alex", "alex"),
                         text),
                 null);
     }
@@ -357,14 +360,14 @@ class CommandRouterTest {
         TelegramUpdateRequest.Message message = new TelegramUpdateRequest.Message(
                 messageId,
                 new TelegramUpdateRequest.Chat(userId),
-                new TelegramUpdateRequest.User(userId, "Alex"),
+                new TelegramUpdateRequest.User(userId, "Alex", "alex"),
                 null);
         return new TelegramUpdateRequest(
                 2L,
                 null,
                 new TelegramUpdateRequest.CallbackQuery(
                         "cb-1",
-                        new TelegramUpdateRequest.User(userId, "Alex"),
+                        new TelegramUpdateRequest.User(userId, "Alex", "alex"),
                         data,
                         message));
     }

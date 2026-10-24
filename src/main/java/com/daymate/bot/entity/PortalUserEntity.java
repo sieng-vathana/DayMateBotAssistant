@@ -19,7 +19,7 @@ public class PortalUserEntity {
     @Column(nullable = false, unique = true, length = 32)
     private String username;
 
-    @Column(nullable = false, length = 100)
+    @Column(length = 100)
     private String passwordHash;
 
     @Column(unique = true)
@@ -48,8 +48,20 @@ public class PortalUserEntity {
         return username;
     }
 
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
     public String getPasswordHash() {
         return passwordHash;
+    }
+
+    public void setPasswordHash(String passwordHash) {
+        this.passwordHash = passwordHash;
+    }
+
+    public boolean hasPassword() {
+        return passwordHash != null && !passwordHash.isBlank();
     }
 
     public Long getTelegramUserId() {
