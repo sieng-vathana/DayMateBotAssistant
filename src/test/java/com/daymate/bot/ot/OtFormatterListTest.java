@@ -17,7 +17,7 @@ class OtFormatterListTest {
     private final OtFormatter formatter = new OtFormatter();
 
     @Test
-    void listPadsTheBubblePastTheLongestRecordLine() {
+    void listKeepsEachRecordOnTwoPlainLines() {
         OtRecordEntity record = new OtRecordEntity(
                 1L, 1L, 2, LocalDate.of(2026, 10, 3),
                 LocalTime.of(9, 0), LocalTime.of(17, 30), OtShift.WEEKEND,
@@ -27,13 +27,10 @@ class OtFormatterListTest {
                 YearMonth.of(2026, 10), List.of(record), new BigDecimal("7.50"), new BigDecimal("34.65"));
 
         String text = formatter.list(summary);
-        String amountLine = text.lines().filter(line -> line.contains("$34.65")).findFirst().orElseThrow();
 
-        assertThat(text).contains("#2");
-        assertThat(text).contains("09:00-17:30");
-        assertThat(amountLine).endsWith("$34.65");
-        assertThat(amountLine.indexOf("\u3164")).isPositive();
-        assertThat(amountLine.chars().filter(ch -> ch == 0x3164).count()).isGreaterThan(10);
-        assertThat(text.lines().reduce((first, second) -> second).orElseThrow()).matches("\u3164+");
+        assertThat(text).doesNotContain("\u3164");
+        assertThat(text).contains("#2 · Sat, 3 Oct 2026 · Weekend (200%)");
+        assertThat(text).contains("09:00-17:30 → 7.50h (incl. 1.00h break) × $4.62/h = $34.65");
+        assertThat(text).contains("Oct 2026 so far: 7.50h · $34.65");
     }
 }
