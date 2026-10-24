@@ -13,7 +13,8 @@ import java.time.format.DateTimeFormatter;
 public class OtFormatter {
     private static final DateTimeFormatter CLOCK = DateTimeFormatter.ofPattern("HH:mm");
     /** Full-width and blank in Telegram. One trailing line stretches the bubble; record lines stay plain. */
-    private static final String BUBBLE_PAD = "\u3164".repeat(56);
+    private static final String BUBBLE_PAD = "\u3164".repeat(96);
+    private static final String GAP = "\u2003\u2003\u2003";
 
     public String oneLinePrompt(java.time.LocalDate today) {
         String month = Texts.monthLong(today);
@@ -304,11 +305,11 @@ public class OtFormatter {
                 " (រួមសម្រាក " + hours(record.getBreakHours()) + ")")
                 : hours(record.getPaidHours()) + Texts.t(" paid", " បានបង់");
         return "#" + record.getRecordNumber()
-                + "  " + Texts.day(record.getWorkDate())
-                + "  " + shiftLabel(record)
-                + "  " + CLOCK.format(record.getStartTime()) + "-" + CLOCK.format(record.getEndTime())
-                + "  " + hours
-                + "  " + money(record.getHourlyRate()) + "/h = " + money(record.getAmount());
+                + GAP + Texts.day(record.getWorkDate())
+                + GAP + shiftLabel(record)
+                + GAP + CLOCK.format(record.getStartTime()) + "-" + CLOCK.format(record.getEndTime())
+                + GAP + hours
+                + GAP + money(record.getHourlyRate()) + "/h = " + money(record.getAmount());
     }
 
     private String line(OtRecordEntity record) {

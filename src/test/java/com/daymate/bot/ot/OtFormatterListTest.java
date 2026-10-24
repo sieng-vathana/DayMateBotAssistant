@@ -29,13 +29,14 @@ class OtFormatterListTest {
         String text = formatter.list(summary);
 
         assertThat(text.lines().filter(line -> line.startsWith("#2")).findFirst().orElseThrow())
-                .isEqualTo("#2  Sat, 3 Oct 2026  Weekend (200%)  09:00-17:30  7.50h (incl. 1.00h break)  $4.62/h = $34.65");
+                .isEqualTo("#2\u2003\u2003\u2003Sat, 3 Oct 2026\u2003\u2003\u2003Weekend (200%)\u2003\u2003\u2003"
+                        + "09:00-17:30\u2003\u2003\u20037.50h (incl. 1.00h break)\u2003\u2003\u2003$4.62/h = $34.65");
         assertThat(text).contains("Oct 2026 so far: 7.50h · <b>$34.65</b>");
         assertThat(text).doesNotContain("<blockquote>");
         assertThat(text).doesNotContain("<b>#2</b>");
         assertThat(text.lines().filter(line -> line.contains("#2") || line.contains("09:00") || line.contains("so far"))
                 .noneMatch(line -> line.indexOf('\u3164') >= 0)).isTrue();
         assertThat(text.lines().reduce((first, second) -> second).orElseThrow())
-                .isEqualTo("\u3164".repeat(56));
+                .isEqualTo("\u3164".repeat(96));
     }
 }
