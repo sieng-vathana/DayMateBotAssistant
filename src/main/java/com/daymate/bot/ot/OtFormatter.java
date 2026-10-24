@@ -12,6 +12,8 @@ import java.time.format.DateTimeFormatter;
 @Component
 public class OtFormatter {
     private static final DateTimeFormatter CLOCK = DateTimeFormatter.ofPattern("HH:mm");
+    /** Telegram sizes the bubble from the longest line. Braille blanks add width and stay invisible. */
+    private static final String BUBBLE_PAD = "\u2800".repeat(48);
 
     public String oneLinePrompt(java.time.LocalDate today) {
         String month = Texts.monthLong(today);
@@ -196,9 +198,9 @@ public class OtFormatter {
     public String list(OtRecordService.MonthSummary summary) {
         String title = Texts.t("📋 OT records — ", "📋 កំណត់ត្រា OT — ") + Texts.month(summary.month());
         if (summary.records().isEmpty()) {
-            return title + Texts.t(
+            return widen(title + Texts.t(
                     "\n\nNo OT yet this month. Send /ot to add one.",
-                    "\n\nមិនទាន់មានម៉ោងបន្ថែមខែនេះទេ។ ផ្ញើ /ot ដើម្បីបន្ថែម។");
+                    "\n\nមិនទាន់មានម៉ោងបន្ថែមខែនេះទេ។ ផ្ញើ /ot ដើម្បីបន្ថែម។"));
         }
         StringBuilder text = new StringBuilder(title);
         for (OtRecordEntity record : summary.records()) {
@@ -211,7 +213,7 @@ public class OtFormatter {
         text.append(Texts.t(
                 "\n\nTap 🗑 to delete one, or send /del 3.",
                 "\n\nចុច 🗑 ដើម្បីលុប ឬផ្ញើ /del 3។"));
-        return text.toString();
+        return widen(text.toString());
     }
 
     public String history(java.util.List<java.time.YearMonth> months) {
@@ -267,6 +269,10 @@ public class OtFormatter {
         return Texts.t(
                 "Send the monthly base salary in USD. Example: 400",
                 "ផ្ញើប្រាក់ខែគោលជាដុល្លារ។ ឧទាហរណ៍៖ 400");
+    }
+
+    private static String widen(String text) {
+        return text + BUBBLE_PAD;
     }
 
     private String line(OtRecordEntity record) {
