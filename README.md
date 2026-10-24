@@ -1,6 +1,6 @@
 # DayMateBotAssistant
 
-DayMate is a Telegram daily planner. Telegram is the user interface. Spring Boot polls Telegram, routes commands, and saves tasks in a local H2 database.
+DayMate is a personal planner with a Telegram bot and a companion web portal. Spring Boot polls Telegram, serves the portal's REST API, and stores tasks, notes, overtime, and salary data in a local H2 database.
 
 ## What you can do
 
@@ -29,11 +29,13 @@ flowchart LR
   mobile[Telegram Mobile App] --> servers[Telegram Servers]
   servers -->|"user messages and button clicks"| poller
   poller["Spring Boot Bot Poller"] -->|"getUpdates"| servers
+  browser[DayMate Portal] -->|"REST API"| api[Portal API]
+  api --> modules["Task, Notes, Overtime Modules"]
   poller --> router[Command Router]
   router --> client[Telegram API Client]
   client --> servers
-  router --> save[Save Module]
-  save --> db[(Local H2 Database)]
+  router --> modules
+  modules --> db[(Local H2 Database)]
 ```
 
 | Piece | Class | Role |
@@ -129,6 +131,28 @@ POST /api/tasks/T-001/complete?telegramUserId=1
 POST /api/tasks/T-001/snooze?telegramUserId=1
 DELETE /api/tasks/T-001?telegramUserId=1
 ```
+
+The authenticated portal also manages the linked Telegram account through account-scoped routes:
+
+```http
+GET    /api/portal/tasks
+GET    /api/portal/tasks/today
+POST   /api/portal/tasks
+POST   /api/portal/tasks/T-001/start
+POST   /api/portal/tasks/T-001/complete
+POST   /api/portal/tasks/T-001/snooze
+DELETE /api/portal/tasks/T-001
+
+GET    /api/portal/notes?page=0&query=&pinned=false
+POST   /api/portal/notes
+PUT    /api/portal/notes/1
+PUT    /api/portal/notes/1/pin
+DELETE /api/portal/notes/1
+POST   /api/portal/notes/1/reminder
+DELETE /api/portal/notes/1/reminder
+```
+
+These `/api/portal/*` routes require a portal bearer token. Task and note routes use the Telegram identity attached to that authenticated portal account; callers cannot choose another user's ID. They return a conflict if the portal account has not been linked to Telegram. Task routes also honor the Tasks module and feature access settings.
 
 Example create:
 
