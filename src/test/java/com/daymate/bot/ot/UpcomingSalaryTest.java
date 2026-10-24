@@ -46,8 +46,8 @@ class UpcomingSalaryTest {
         when(records.findByTelegramUserIdAndWorkDateBetweenOrderByWorkDateAscStartTimeAscIdAsc(
                 eq(1L), eq(LocalDate.of(2026, 10, 1)), eq(LocalDate.of(2026, 10, 31))))
                 .thenReturn(List.of(
-                        ot(new BigDecimal("34.65")),
-                        ot(new BigDecimal("6.92"))));
+                        ot(new BigDecimal("7.50"), new BigDecimal("34.65")),
+                        ot(new BigDecimal("2.00"), new BigDecimal("6.92"))));
 
         OtRecordService.UpcomingSalary upcoming = service.upcoming(1L);
 
@@ -55,9 +55,11 @@ class UpcomingSalaryTest {
         OtRecordService.Payday next = upcoming.next().get(0);
         assertThat(next.date()).isEqualTo(LocalDate.of(2026, 10, 26));
         assertThat(next.amount()).isEqualByComparingTo("200.00");
+        assertThat(next.otHours()).isEqualByComparingTo("9.50");
         assertThat(next.ot()).isEqualByComparingTo("41.57");
         assertThat(next.total()).isEqualByComparingTo("241.57");
         assertThat(upcoming.next().get(1).date()).isEqualTo(LocalDate.of(2026, 11, 12));
+        assertThat(upcoming.next().get(1).otHours()).isEqualByComparingTo("0.00");
         assertThat(upcoming.next().get(1).ot()).isEqualByComparingTo("0.00");
         assertThat(upcoming.next().get(1).total()).isEqualByComparingTo("200.00");
     }
@@ -71,6 +73,7 @@ class UpcomingSalaryTest {
         OtRecordService.UpcomingSalary upcoming = service.upcoming(1L);
 
         assertThat(upcoming.next().get(0).date()).isEqualTo(LocalDate.of(2026, 10, 26));
+        assertThat(upcoming.next().get(0).otHours()).isEqualByComparingTo("0.00");
         assertThat(upcoming.next().get(0).ot()).isEqualByComparingTo("0.00");
         assertThat(upcoming.next().get(0).total()).isEqualByComparingTo("200.00");
     }
@@ -80,16 +83,16 @@ class UpcomingSalaryTest {
         SalaryProfileEntity profile = acleda();
         OtRecordService.UpcomingSalary upcoming = new OtRecordService.UpcomingSalary(
                 profile, new BigDecimal("2.31"), List.of(
-                new OtRecordService.Payday(LocalDate.of(2026, 10, 26), new BigDecimal("200.00"), new BigDecimal("41.57")),
-                new OtRecordService.Payday(LocalDate.of(2026, 11, 12), new BigDecimal("200.00"), new BigDecimal("0.00"))));
+                new OtRecordService.Payday(LocalDate.of(2026, 10, 26), new BigDecimal("200.00"), new BigDecimal("9.50"), new BigDecimal("41.57")),
+                new OtRecordService.Payday(LocalDate.of(2026, 11, 12), new BigDecimal("200.00"), new BigDecimal("0.00"), new BigDecimal("0.00"))));
 
         String text = new OtFormatter().upcoming(upcoming);
 
         assertThat(text).contains("26 Oct 2026");
         assertThat(text).contains("Base: $200.00");
-        assertThat(text).contains("OT paid: $41.57");
+        assertThat(text).contains("OT paid: 9.50h · $41.57");
         assertThat(text).contains("Total income: $241.57");
-        assertThat(text).contains("OT paid: $0.00");
+        assertThat(text).contains("OT paid: 0.00h · $0.00");
         assertThat(text).contains("Total income: $200.00");
     }
 
@@ -97,11 +100,11 @@ class UpcomingSalaryTest {
         return new SalaryProfileEntity(1L, true, 2, 12, 26, 5, new BigDecimal("400.00"), Instant.EPOCH);
     }
 
-    private static OtRecordEntity ot(BigDecimal amount) {
+    private static OtRecordEntity ot(BigDecimal paidHours, BigDecimal amount) {
         return new OtRecordEntity(
                 1L, 1L, 1, LocalDate.of(2026, 10, 3),
                 LocalTime.of(9, 0), LocalTime.of(17, 30), OtShift.WEEKEND,
-                BigDecimal.ONE, BigDecimal.ZERO, BigDecimal.ONE,
+                paidHours, BigDecimal.ZERO, paidHours,
                 new BigDecimal("4.62"), amount, Instant.EPOCH);
     }
 }

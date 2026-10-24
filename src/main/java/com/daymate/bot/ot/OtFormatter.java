@@ -174,7 +174,8 @@ public class OtFormatter {
             return;
         }
         text.append(Texts.t("\nBase: ", "\nប្រាក់ខែគោល: ")).append(money(payday.amount()));
-        text.append(Texts.t("\nOT paid: ", "\nប្រាក់ OT: ")).append(money(payday.ot()));
+        text.append(Texts.t("\nOT paid: ", "\nប្រាក់ OT: "))
+                .append(hours(payday.otHours())).append(" · ").append(money(payday.ot()));
         text.append(Texts.t("\nTotal income: ", "\nចំណូលសរុប: ")).append(money(payday.total()));
     }
 

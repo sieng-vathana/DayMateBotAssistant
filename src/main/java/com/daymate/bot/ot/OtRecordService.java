@@ -163,8 +163,8 @@ public class OtRecordService {
                 BigDecimal.valueOf(Math.max(1, profile.getPayTimes())), 2, java.math.RoundingMode.HALF_UP);
         java.util.ArrayList<Payday> pays = new java.util.ArrayList<>();
         for (LocalDate date : dates) {
-            BigDecimal ot = includesOvertime(profile, date) ? otPaid(userId, YearMonth.from(date)) : moneyZero();
-            pays.add(new Payday(date, each, ot));
+            OtTotal ot = includesOvertime(profile, date) ? otPaid(userId, YearMonth.from(date)) : OtTotal.NONE;
+            pays.add(new Payday(date, each, ot.hours(), ot.amount()));
         }
         return new UpcomingSalary(profile, hourly.setScale(2, java.math.RoundingMode.HALF_UP), pays);
     }
@@ -178,13 +178,16 @@ public class OtRecordService {
         return date.getDayOfMonth() == lastDay;
     }
 
-    private BigDecimal otPaid(Long userId, YearMonth month) {
-        BigDecimal total = moneyZero();
+    private OtTotal otPaid(Long userId, YearMonth month) {
+        BigDecimal hours = moneyZero();
+        BigDecimal amount = moneyZero();
         for (OtRecordEntity row : records.findByTelegramUserIdAndWorkDateBetweenOrderByWorkDateAscStartTimeAscIdAsc(
                 userId, month.atDay(1), month.atEndOfMonth())) {
-            total = total.add(row.getAmount());
+            hours = hours.add(row.getPaidHours());
+            amount = amount.add(row.getAmount());
         }
-        return total.setScale(2, java.math.RoundingMode.HALF_UP);
+        return new OtTotal(hours.setScale(2, java.math.RoundingMode.HALF_UP),
+                amount.setScale(2, java.math.RoundingMode.HALF_UP));
     }
 
     private static BigDecimal moneyZero() {
@@ -212,10 +215,16 @@ public class OtRecordService {
     public record MonthSummary(YearMonth month, List<OtRecordEntity> records, BigDecimal paidHours, BigDecimal amount) {
     }
 
-    public record Payday(LocalDate date, BigDecimal amount, BigDecimal ot) {
+    public record Payday(LocalDate date, BigDecimal amount, BigDecimal otHours, BigDecimal ot) {
         public BigDecimal total() {
             return amount.add(ot);
         }
+    }
+
+    private record OtTotal(BigDecimal hours, BigDecimal amount) {
+        private static final OtTotal NONE = new OtTotal(
+                BigDecimal.ZERO.setScale(2, java.math.RoundingMode.HALF_UP),
+                BigDecimal.ZERO.setScale(2, java.math.RoundingMode.HALF_UP));
     }
 
     public record UpcomingSalary(SalaryProfileEntity profile, BigDecimal hourly, List<Payday> next) {
