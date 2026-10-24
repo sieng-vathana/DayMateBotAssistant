@@ -13,11 +13,16 @@ import com.daymate.bot.domain.TaskPriority;
 import com.daymate.bot.dto.request.TelegramUpdateRequest;
 import com.daymate.bot.entity.ConversationStateEntity;
 import com.daymate.bot.entity.TaskEntity;
+import com.daymate.bot.entity.NoteEntity;
 import com.daymate.bot.modules.developer.DeveloperModule;
 import com.daymate.bot.modules.finance.FinanceModule;
+import com.daymate.bot.modules.notes.NotesModule;
 import com.daymate.bot.modules.overtime.OvertimeModule;
-import com.daymate.bot.modules.save.SaveModule;
 import com.daymate.bot.modules.task.TasksModule;
+import com.daymate.bot.notes.NoteFixtures;
+import com.daymate.bot.notes.NoteFormatter;
+import com.daymate.bot.notes.NoteService;
+import com.daymate.bot.notes.NoteTimes;
 import com.daymate.bot.save.TaskSaveService;
 import com.daymate.bot.service.ConversationLookup;
 import com.daymate.bot.service.ConversationService;
@@ -31,6 +36,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -66,6 +72,8 @@ class CommandRouterTest {
     private FeatureAccessGuard guard;
     @Mock
     private UserRateLimiter rateLimiter;
+    @Mock
+    private NoteService noteService;
 
     private CommandRouter router;
 
@@ -86,7 +94,9 @@ class CommandRouterTest {
                 new OvertimeModule(otHandler, telegram),
                 new TasksModule(tasks, conversationHandler, conversations, formatter, telegram),
                 new FinanceModule(telegram),
-                new SaveModule(telegram),
+                new NotesModule(noteService, conversations, telegram,
+                        new NoteFormatter(ZoneId.of("Asia/Phnom_Penh")),
+                        new NoteTimes(Clock.systemUTC(), ZoneId.of("Asia/Phnom_Penh"))),
                 new DeveloperModule(telegram)));
         router = new CommandRouter(telegram, conversations, languages, formatter, registry, guard, rateLimiter, properties);
     }
@@ -252,6 +262,54 @@ class CommandRouterTest {
         router.process(callback(1L, 10L, "ot:cancel"));
 
         verify(otHandler).handleCallback("cb-1", 1L, 1L, "ot:cancel");
+    }
+
+    @Test
+    void notesCommandIsUnavailableUntilAllowed() {
+        router.process(message(1L, "/note remember"));
+
+        verify(telegram).sendMessage(eq(1L), eq("🚧 📌 Notes is currently unavailable."));
+        verify(noteService, never()).create(any(), any(), any());
+    }
+
+    @Test
+    void saveCommandIsUnknown() {
+        router.process(message(1L, "/save"));
+
+        verify(telegram).sendMessage(eq(1L), eq("I don't know that command. Send /help to see what I can do."));
+    }
+
+    @Test
+    void waitingNoteTextCreatesOneNote() {
+        when(guard.decide(any(), eq("notes"), nullable(String.class))).thenReturn(AccessDecision.ALLOW);
+        ConversationStateEntity state = new ConversationStateEntity(
+                1L, 1L, ConversationStep.NOTES_WAITING_CONTENT, Instant.parse("2026-10-24T02:00:00Z"));
+        state.setModuleKey("notes");
+        when(conversations.read(1L)).thenReturn(ConversationLookup.found(state));
+        NoteEntity note = new NoteEntity(
+                1L, "Remember this", "Remember this", false, Instant.parse("2026-10-24T02:00:00Z"));
+        NoteFixtures.setId(note, 4L);
+        when(noteService.create(1L, 1L, "Remember this")).thenReturn(note);
+
+        router.process(message(1L, "Remember this"));
+
+        verify(noteService).create(1L, 1L, "Remember this");
+        verify(conversations).clear(1L);
+    }
+
+    @Test
+    void blankNoteTextKeepsTheConversation() {
+        when(guard.decide(any(), eq("notes"), nullable(String.class))).thenReturn(AccessDecision.ALLOW);
+        ConversationStateEntity state = new ConversationStateEntity(
+                1L, 1L, ConversationStep.NOTES_WAITING_CONTENT, Instant.parse("2026-10-24T02:00:00Z"));
+        state.setModuleKey("notes");
+        when(conversations.read(1L)).thenReturn(ConversationLookup.found(state));
+        when(noteService.create(1L, 1L, "")).thenThrow(new IllegalArgumentException("Send the note text."));
+
+        router.process(message(1L, "   "));
+
+        verify(telegram).sendMessage(eq(1L), eq("Send the note text."));
+        verify(conversations, never()).clear(any());
     }
 
     private static TelegramUpdateRequest message(long userId, String text) {

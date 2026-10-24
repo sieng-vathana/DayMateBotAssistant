@@ -20,6 +20,7 @@ import java.util.Optional;
 @Service
 public class FeatureAccessGuard {
     public static final String OVERTIME = "overtime";
+    public static final String NOTES = "notes";
 
     private final ModuleRegistry registry;
     private final ModuleSettingRepository modules;
@@ -89,7 +90,7 @@ public class FeatureAccessGuard {
         if (row.isPresent()) {
             return row.get().isAllowed();
         }
-        return OVERTIME.equals(moduleId);
+        return OVERTIME.equals(moduleId) || NOTES.equals(moduleId);
     }
 
     private boolean userMayUseFeature(BotModule module, Long userId, String featureKey) {

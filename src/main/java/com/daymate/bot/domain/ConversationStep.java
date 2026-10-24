@@ -13,7 +13,12 @@ public enum ConversationStep {
     PAY_DAY_2,
     BASE_SALARY,
     OT_TIME,
-    OT_TYPE;
+    OT_TYPE,
+    NOTES_WAITING_CONTENT,
+    NOTES_WAITING_EDIT_CONTENT,
+    NOTES_WAITING_SEARCH_QUERY,
+    NOTES_WAITING_REMINDER_DATE,
+    NOTES_WAITING_REMINDER_TIME;
 
     public boolean isOtSetup() {
         return switch (this) {

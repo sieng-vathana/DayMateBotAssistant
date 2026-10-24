@@ -9,8 +9,12 @@ import com.daymate.bot.entity.UserFeatureAccessEntity;
 import com.daymate.bot.entity.UserFeatureAccessId;
 import com.daymate.bot.entity.UserModuleAccessEntity;
 import com.daymate.bot.entity.UserModuleAccessId;
+import com.daymate.bot.modules.notes.NotesModule;
 import com.daymate.bot.modules.overtime.OvertimeModule;
 import com.daymate.bot.modules.task.TasksModule;
+import com.daymate.bot.notes.NoteFormatter;
+import com.daymate.bot.notes.NoteService;
+import com.daymate.bot.notes.NoteTimes;
 import com.daymate.bot.repository.FeatureSettingRepository;
 import com.daymate.bot.repository.ModuleSettingRepository;
 import com.daymate.bot.repository.UserFeatureAccessRepository;
@@ -27,7 +31,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 
@@ -54,6 +60,8 @@ class FeatureAccessGuardTest {
     private ConversationHandler conversationHandler;
     @Mock
     private ConversationService conversations;
+    @Mock
+    private NoteService noteService;
 
     private FeatureAccessGuard guard;
 
@@ -61,7 +69,10 @@ class FeatureAccessGuardTest {
     void setUp() {
         ModuleRegistry registry = new ModuleRegistry(List.of(
                 new OvertimeModule(otHandler, telegram),
-                new TasksModule(tasks, conversationHandler, conversations, new PlannerFormatter(), telegram)));
+                new TasksModule(tasks, conversationHandler, conversations, new PlannerFormatter(), telegram),
+                new NotesModule(noteService, conversations, telegram,
+                        new NoteFormatter(ZoneId.of("Asia/Phnom_Penh")),
+                        new NoteTimes(Clock.systemUTC(), ZoneId.of("Asia/Phnom_Penh")))));
         guard = new FeatureAccessGuard(registry, modules, features, userModules, userFeatures);
     }
 
@@ -85,6 +96,23 @@ class FeatureAccessGuardTest {
                 .thenReturn(Optional.of(new UserModuleAccessEntity(1L, "overtime", false, Instant.EPOCH)));
 
         assertThat(guard.decide(1L, "overtime", "ot.record")).isEqualTo(AccessDecision.MODULE_OFF);
+    }
+
+    @Test
+    void notesWithoutAUserRowIsAllowed() {
+        enabled("notes", 40);
+        enabledFeature("notes.create", "notes");
+
+        assertThat(guard.decide(1L, "notes", "notes.create")).isEqualTo(AccessDecision.ALLOW);
+    }
+
+    @Test
+    void explicitDenialBeatsTheNotesDefault() {
+        enabled("notes", 40);
+        when(userModules.findById(new UserModuleAccessId(1L, "notes")))
+                .thenReturn(Optional.of(new UserModuleAccessEntity(1L, "notes", false, Instant.EPOCH)));
+
+        assertThat(guard.decide(1L, "notes", "notes.create")).isEqualTo(AccessDecision.MODULE_OFF);
     }
 
     @Test
