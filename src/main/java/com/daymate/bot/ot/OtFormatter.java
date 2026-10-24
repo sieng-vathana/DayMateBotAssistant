@@ -229,10 +229,7 @@ public class OtFormatter {
         }
         StringBuilder text = new StringBuilder(title);
         for (OtRecordEntity record : summary.records()) {
-            text.append("\n\n#").append(record.getRecordNumber())
-                    .append(" · ").append(Texts.day(record.getWorkDate()))
-                    .append(" · ").append(shiftLabel(record))
-                    .append('\n').append(clockLine(record));
+            text.append("\n\n").append(listRow(record));
         }
         text.append("\n\n").append(monthLabel(summary)).append(" · <b>").append(money(summary.amount())).append("</b>");
         text.append(Texts.t(
@@ -298,6 +295,20 @@ public class OtFormatter {
         return Texts.t(
                 "Send the monthly base salary in USD. Example: 400",
                 "ផ្ញើប្រាក់ខែគោលជាដុល្លារ។ ឧទាហរណ៍៖ 400");
+    }
+
+    private String listRow(OtRecordEntity record) {
+        String hours = record.getBreakHours().signum() > 0
+                ? hours(record.getPaidHours()) + Texts.t(
+                " (incl. " + hours(record.getBreakHours()) + " break)",
+                " (រួមសម្រាក " + hours(record.getBreakHours()) + ")")
+                : hours(record.getPaidHours()) + Texts.t(" paid", " បានបង់");
+        return "#" + record.getRecordNumber()
+                + "  " + Texts.day(record.getWorkDate())
+                + "  " + shiftLabel(record)
+                + "  " + CLOCK.format(record.getStartTime()) + "-" + CLOCK.format(record.getEndTime())
+                + "  " + hours
+                + "  " + money(record.getHourlyRate()) + "/h = " + money(record.getAmount());
     }
 
     private String line(OtRecordEntity record) {
